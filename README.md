@@ -1,22 +1,18 @@
 # Portfolio
 
-A single-page portfolio for showing your work to clients. No build step, no
+A single-page portfolio for showing client work. No build step, no
 dependencies — `index.html` is the whole site.
 
-## Before you share it
+Branded as **Omada**, speaking in a solo "I" voice. To swap in a full name,
+search `index.html` for `Omada` (page title, JSON-LD, nav, footer) and change
+the `O` logo mark in the nav and favicon.
 
-Open `index.html` and search for **PLACEHOLDER**. There are four spots:
+## Quick facts
 
-| What | Where | Currently |
-| ---- | ----- | --------- |
-| Your name | nav, footer | `Your Name` |
-| Your initials | nav logo square | `YN` |
-| Your email | contact section, footer | `omada008@gmail.com` |
-| Phone number | contact section | commented out — uncomment to show |
-
-Also worth a look:
-- `Toronto, Canada` appears in the hero badge, the About facts table, and the footer.
-- The hero badge says *"Available for new projects"* — change or delete it when you're booked.
+- **Email:** omada008@gmail.com (contact section + footer)
+- **Phone:** commented out in the Contact section — uncomment to show it
+- **Location:** `Toronto, Canada` appears in the hero badge, About facts, and footer
+- The hero badge says *"Available for new projects"* — change or delete it when booked.
 
 ## Preview it locally
 
@@ -41,6 +37,10 @@ vercel --prod   # live
 
 Any static host works too — Netlify, Cloudflare Pages, or GitHub Pages. Upload the
 folder as-is.
+
+> After deploying, set the `og:image` meta tag in `index.html` to an absolute
+> URL (e.g. `https://your-domain.com/assets/dream-wheels.jpg`) so link previews
+> work on social platforms and in messengers.
 
 ## What's in here
 
@@ -84,4 +84,9 @@ with this:
 - The team page screenshot was cropped to remove staff emails and phone
   extensions before it went in `assets/`.
 - Layout is responsive: two-column work grid on desktop, single column below
-  720px, with the nav links hidden on small screens.
+  760px, with a full-screen burger menu replacing the nav links on small screens.
+- SEO extras baked in: Open Graph / Twitter card tags, an inline SVG favicon,
+  and JSON-LD `ProfessionalService` structured data.
+- All animations (particles, tilt, cursor, marquee, reveals) are vanilla JS/CSS,
+  disabled automatically for `prefers-reduced-motion` and touch devices where
+  appropriate.
