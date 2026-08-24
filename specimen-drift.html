@@ -93,6 +93,15 @@
   body.flow .orbimg{ filter:var(--liq) }
 
 
+  /* the ends of the carousel: a soft darkening that comes up as the cursor
+     nears either edge, so the drift reads as intentional rather than a glitch */
+  .edge{
+    position:fixed; top:0; bottom:0; width:20vw; z-index:4;
+    pointer-events:none; opacity:0; will-change:opacity;
+  }
+  .edge--l{ left:0;  background:linear-gradient(to right, rgba(11,11,11,.085), transparent 78%) }
+  .edge--r{ right:0; background:linear-gradient(to left,  rgba(11,11,11,.085), transparent 78%) }
+
   .foot{
     position:fixed; left:0; right:0; bottom:18px; z-index:10;
     display:flex; justify-content:center; align-items:center; gap:14px;
@@ -187,6 +196,9 @@
   </div>
 </div>
 
+<div class="edge edge--l" id="edgeL" aria-hidden="true"></div>
+<div class="edge edge--r" id="edgeR" aria-hidden="true"></div>
+
 <div class="foot">
   <span>Drag to slide</span>
   <button class="flow" id="flow" type="button" aria-pressed="false">Flow: off</button>
@@ -197,6 +209,12 @@
   const scene = document.getElementById('scene');
   const ring  = document.getElementById('ring');
   const flow  = document.getElementById('flow');
+  const edgeL = document.getElementById('edgeL');
+  const edgeR = document.getElementById('edgeR');
+  const orbs  = [...document.querySelectorAll('.orbimg')];
+
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
   const setFlow = on => {
     document.body.classList.toggle('flow', on);
@@ -209,30 +227,34 @@
   setFlow(initial);
   flow.addEventListener('click', () => setFlow(!document.body.classList.contains('flow')));
 
-  const STEP = 36;   // 10 slots, 5 worlds twice
+  const STEP = 36;
 
-  // Negative: each slot sits at a NEGATIVE translateZ, so a slot's screen
-  // position is x = -R*sin(angle) and increasing the angle carries orbs LEFT.
-  // The sign is what makes the orbs travel with your hand, not against it.
-  const SENS        = -0.26;                // degrees of ring per pixel
-  const STIFFNESS   = 90;
-  const DAMPING     = 2 * Math.sqrt(90);    // critical: settles without overshoot
-  const THROW_TIME  = 0.16;                 // seconds of velocity folded into the throw
-  const MAX_SLOTS   = 3;
-  const VEL_WINDOW  = 80;                   // ms of history the fling speed is read from
-  const MIN_DT      = 0.008;                // floor on the sample gap: events can share a
-                                            // timestamp, and dividing by ~0 explodes the spring
-  const MAX_VEL     = 1200;                 // deg/s ceiling on a fling (~33 slots/sec)
+  // Negative: slots sit at a negative translateZ, so screen x = -R*sin(angle)
+  // and a rising angle carries orbs LEFT. This sign is what makes them travel
+  // with your hand rather than against it.
+  const SENS       = -0.26;
+  const STIFFNESS  = 90;
+  const DAMPING    = 2 * Math.sqrt(90);
+  const THROW_TIME = 0.16;
+  const MAX_SLOTS  = 3;
+  const VEL_WINDOW = 80;
+  const MIN_DT     = 0.008;
+  const MAX_VEL    = 1200;
+
+  const EDGE_ZONE  = 0.20;   // outer fifth of the viewport counts as "near the end"
+  const EDGE_SPEED = 52;     // deg/sec of drift at full strength
+  const EDGE_EASE  = 5;      // how fast the drift ramps in and out
+  const LEAN_REF   = 330;    // deg/sec that maps to a full lean
+  const LEAN_ROT   = 7;      // degrees the orbs roll into the motion
+  const LEAN_PULL  = 0.072;  // how much they stretch along travel
+  const LEAN_EASE  = 9;
 
   let spin = 0, vel = 0, target = 0, drawn = null;
-  let dragging = false, pointerX = 0, appliedX = 0;
+  let dragging = false, pointerX = 0, appliedX = 0, hoverX = null;
+  let edge = 0, lean = 0, leanDrawn = null, settle = false;
   let history = [];
   let prev = performance.now();
 
-  // Fold whatever the pointer has moved since the last frame into the angle.
-  // Called from the frame loop AND from release, because a quick flick can
-  // deliver every one of its events before the next frame ever runs - and
-  // without this flush that whole gesture would be silently discarded.
   const applyPending = () => {
     const dx = pointerX - appliedX;
     if (!dx) return;
@@ -240,15 +262,13 @@
     spin += dx * SENS;
   };
 
-  // Speed measured over a time window rather than the last frame, so it is
-  // correct whether the gesture spanned twenty frames or none at all.
   const flingVelocity = () => {
     if (history.length < 2) return 0;
     const last = history[history.length - 1];
     let first = history[0];
     for (const s of history) { if (last.t - s.t <= VEL_WINDOW) { first = s; break; } }
     const dt = Math.max((last.t - first.t) / 1000, MIN_DT);
-    const v  = ((last.x - first.x) * SENS) / dt;   // degrees per second
+    const v  = ((last.x - first.x) * SENS) / dt;
     return Math.max(-MAX_VEL, Math.min(MAX_VEL, v));
   };
 
@@ -261,20 +281,19 @@
     scene.dataset.drag = '1';
   });
 
-  // Record only. A high-rate pointer fires far more often than the display
-  // refreshes; writing a transform per event is redundant work and jank.
   scene.addEventListener('pointermove', e => {
+    hoverX = e.clientX;
     if (!dragging) return;
     pointerX = e.clientX;
     history.push({ x: e.clientX, t: performance.now() });
     if (history.length > 12) history.shift();
   });
+  scene.addEventListener('pointerleave', () => { hoverX = null; });
 
   const release = e => {
     if (!dragging) return;
-    applyPending();                 // <- must happen BEFORE the target is chosen
-    dragging = false;
-    scene.dataset.drag = '0';
+    applyPending();                       // before the target is chosen, always
+    dragging = false; scene.dataset.drag = '0';
     vel = flingVelocity();
     const limit     = MAX_SLOTS * STEP;
     const projected = spin + Math.max(-limit, Math.min(limit, vel * THROW_TIME));
@@ -292,13 +311,37 @@
     e.preventDefault();
   });
 
+  // signed 0..1 strength of "how near an end is the cursor", smoothstepped so
+  // it has no hard boundary to cross
+  const edgeTarget = () => {
+    if (calm || !fine || dragging || hoverX == null) return 0;
+    const w = innerWidth, z = w * EDGE_ZONE;
+    let t = 0;
+    if (hoverX < z)          t = -(1 - hoverX / z);
+    else if (hoverX > w - z) t =  (1 - (w - hoverX) / z);
+    const a = Math.abs(t);
+    return Math.sign(t) * a * a * (3 - 2 * a);      // smoothstep
+  };
+
   (function frame(now){
     const dt = Math.min(Math.max((now - prev) / 1000, 0.0001), 0.05);
     prev = now;
 
+    // ease the edge strength itself, so entering and leaving the zone is a
+    // ramp rather than a step
+    edge += (edgeTarget() - edge) * Math.min(1, dt * EDGE_EASE);
+
     if (dragging){
       applyPending();
+    } else if (Math.abs(edge) > 0.003){
+      // drift while hovering an end. Target tracks spin so the snap spring
+      // has nothing to pull against, and a settle is queued for when you leave.
+      vel    = edge * EDGE_SPEED;
+      spin  += vel * dt;
+      target = spin;
+      settle = true;
     } else {
+      if (settle){ target = Math.round(spin / STEP) * STEP; settle = false; }
       const accel = -STIFFNESS * (spin - target) - DAMPING * vel;
       vel  += accel * dt;
       spin += vel * dt;
@@ -306,6 +349,25 @@
 
     const next = spin.toFixed(3);
     if (next !== drawn){ ring.style.transform = 'rotateY(' + next + 'deg)'; drawn = next; }
+
+    if (!calm){
+      // orbs roll and stretch into the direction of travel, like something
+      // being pulled through liquid. Eased separately so it trails the motion
+      // slightly instead of snapping to it.
+      const want = Math.max(-1, Math.min(1, vel / LEAN_REF));
+      lean += (want - lean) * Math.min(1, dt * LEAN_EASE);
+      const key = lean.toFixed(3);
+      if (key !== leanDrawn){
+        leanDrawn = key;
+        const a  = Math.abs(lean);
+        const t  = 'rotate(' + (-lean * LEAN_ROT).toFixed(2) + 'deg) scale(' +
+                   (1 + a * LEAN_PULL).toFixed(4) + ',' + (1 - a * LEAN_PULL * 0.62).toFixed(4) + ')';
+        for (const o of orbs) o.style.transform = t;
+      }
+      const el = edge < 0 ? -edge : 0, er = edge > 0 ? edge : 0;
+      edgeL.style.opacity = el.toFixed(3);
+      edgeR.style.opacity = er.toFixed(3);
+    }
 
     requestAnimationFrame(frame);
   })(performance.now());
