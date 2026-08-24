@@ -1,0 +1,310 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>rig 4 — worlds</title>
+<style>
+  body{margin:0;background:#F5F4F2;color:#333;font:12px monospace;padding:10px}
+  #log{white-space:pre-wrap;line-height:1.5}
+  #sheet{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  #sheet figure{margin:0;text-align:center}
+  #sheet img{width:230px;height:230px;display:block}
+</style>
+</head>
+<body>
+<div id="log">booting…</div>
+<div id="sheet"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+const log = m => document.getElementById('log').textContent += '\n' + m;
+const SIZE = 1024;
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setSize(SIZE,SIZE); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const pmrem = new THREE.PMREMGenerator(renderer);
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+
+// ---------- 2D helpers: the orb interiors are painted, not lit ----------
+function canvas2d(){ const c=document.createElement('canvas'); c.width=c.height=SIZE; return c; }
+
+function gradientTex(stops, angle='v'){
+  const c=canvas2d(), x=c.getContext('2d');
+  const g = angle==='v' ? x.createLinearGradient(0,0,0,SIZE) : x.createLinearGradient(0,0,SIZE,0);
+  stops.forEach(([p,col])=>g.addColorStop(p,col));
+  x.fillStyle=g; x.fillRect(0,0,SIZE,SIZE);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+
+// deterministic 2D fbm, used for the marbled world
+const fr=v=>v-Math.floor(v);
+const h2=(x,y)=>fr(Math.sin(x*127.1+y*311.7)*43758.5453);
+function n2(x,y){
+  const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+  const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+  return (h2(xi,yi)*(1-u)+h2(xi+1,yi)*u)*(1-v) + (h2(xi,yi+1)*(1-u)+h2(xi+1,yi+1)*u)*v;
+}
+function fbm2(x,y,o=5){ let a=.5,f=1,s=0; for(let i=0;i<o;i++){s+=a*n2(x*f,y*f);f*=2.07;a*=.5} return s; }
+
+function marbleTex(ramp){
+  const c=canvas2d(), ctx=c.getContext('2d'), img=ctx.createImageData(SIZE,SIZE);
+  const stops=ramp.map(([p,col])=>[p, [parseInt(col.slice(1,3),16),parseInt(col.slice(3,5),16),parseInt(col.slice(5,7),16)]]);
+  const sample=t=>{
+    t=Math.max(0,Math.min(1,t));
+    for(let i=1;i<stops.length;i++){
+      if(t<=stops[i][0]){
+        const [p0,c0]=stops[i-1], [p1,c1]=stops[i];
+        const k=(t-p0)/((p1-p0)||1);
+        return [0,1,2].map(j=>c0[j]+(c1[j]-c0[j])*k);
+      }
+    }
+    return stops[stops.length-1][1];
+  };
+  for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    const u=x/SIZE*4, v=y/SIZE*4;
+    // domain warp — this is what turns bands into liquid swirl
+    const wx=fbm2(u+0.0,v+0.0)*2.4, wy=fbm2(u+5.2,v+1.3)*2.4;
+    let t=fbm2(u+wx, v+wy, 5);
+    t = t*1.5 - 0.25;
+    // the hot equator band
+    const band=Math.exp(-Math.pow((y/SIZE-0.5)*11,2));
+    t = t*(1-band*0.85) + band*0.98;
+    const [r,g,b]=sample(t);
+    const i=(y*SIZE+x)*4;
+    img.data[i]=r; img.data[i+1]=g; img.data[i+2]=b; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const tx=new THREE.CanvasTexture(c); tx.colorSpace=THREE.SRGBColorSpace; return tx;
+}
+
+// coloured studio box -> chrome picks up the world's own palette
+function envFrom(base, panels){
+  const s=new THREE.Scene();
+  const box=new THREE.Mesh(new THREE.BoxGeometry(30,30,30),
+    new THREE.MeshBasicMaterial({color:new THREE.Color(base), side:THREE.BackSide}));
+  s.add(box);
+  for(const [col,x,y,z,sx,sy] of panels){
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(sx,sy),
+      new THREE.MeshBasicMaterial({color:new THREE.Color(col)}));
+    p.position.set(x,y,z); p.lookAt(0,0,0); s.add(p);
+  }
+  return pmrem.fromScene(s, 0.02).texture;
+}
+
+let seed=99; const rnd=()=>{seed=(seed*1664525+1013904223)>>>0; return seed/4294967296};
+
+// ---------- bake the liquify in ----------
+// Runtime SVG filters can't be cached inside an animating 3D stage, so the
+// warp is applied here once, to the pixels. Alpha is displaced too, which is
+// what melts the circular edge into a bead of liquid.
+function liquify(cv, amp, freq){
+  const x=cv.getContext('2d');
+  const src=x.getImageData(0,0,SIZE,SIZE);
+  const dst=x.createImageData(SIZE,SIZE);
+  const S=src.data, D=dst.data;
+  for(let y=0;y<SIZE;y++){
+    const v=y/SIZE*freq;
+    for(let px=0;px<SIZE;px++){
+      const u=px/SIZE*freq;
+      const dx=(fbm2(u, v, 4)-0.5)*2*amp;
+      const dy=(fbm2(u+31.7, v+11.3, 4)-0.5)*2*amp;
+      let sx=(px+dx)|0, sy=(y+dy)|0;
+      sx = sx<0?0 : sx>=SIZE?SIZE-1 : sx;
+      sy = sy<0?0 : sy>=SIZE?SIZE-1 : sy;
+      const si=(sy*SIZE+sx)<<2, di=(y*SIZE+px)<<2;
+      D[di]=S[si]; D[di+1]=S[si+1]; D[di+2]=S[si+2]; D[di+3]=S[si+3];
+    }
+  }
+  x.putImageData(dst,0,0);
+}
+
+// ---------- the five worlds ----------
+const WORLDS = [
+  {
+    name:'world-chrome-cluster', warp:22,            // W3 language
+    bg:()=>gradientTex([[0,'#12333C'],[0.42,'#3C5560'],[1,'#EBC6B6']]),
+    env:()=>envFrom('#05090C',[['#FFFFFF',7,6,7,20,20],['#FFB79A',-9,-2,5,14,14],['#9FF0FF',0,10,-9,16,16]]),
+    build(){
+      const g=new THREE.Group();
+      const chrome=new THREE.MeshStandardMaterial({color:0xF2F2F2,metalness:1,roughness:0.05});
+      const rose  =new THREE.MeshStandardMaterial({color:0xE2A48C,metalness:1,roughness:0.09});
+      const dark  =new THREE.MeshStandardMaterial({color:0x2E2A33,metalness:1,roughness:0.14});
+      const mats=[chrome,chrome,rose,dark,chrome,rose];
+      for(let i=0;i<17;i++){
+        const r=0.16+rnd()*0.30;
+        const m=new THREE.Mesh(new THREE.SphereGeometry(r,64,64), mats[i%mats.length]);
+        const a=rnd()*Math.PI*2, b=Math.acos(1-2*rnd()), rad=rnd()*0.66;
+        m.position.set(Math.sin(b)*Math.cos(a)*rad, Math.cos(b)*rad*0.9, Math.sin(b)*Math.sin(a)*rad);
+        g.add(m);
+      }
+      return g;
+    }
+  },
+  {
+    name:'world-liquid', warp:36,                    // W2 language
+    bg:()=>marbleTex([[0,'#0A0208'],[0.30,'#7A0B33'],[0.52,'#E23C1E'],[0.70,'#FF8A2B'],[0.86,'#FFD9C2'],[1,'#FFFFFF']]),
+    env:()=>envFrom('#2A0410',[['#FF7A3C',8,4,6,16,16],['#FFFFFF',-6,7,4,10,10]]),
+    build(){ return new THREE.Group(); }   // painted world, nothing in front
+  },
+  {
+    name:'world-acid', warp:30,                      // W1 language
+    bg:()=>gradientTex([[0,'#DDF23A'],[0.55,'#B9D400'],[1,'#7E9600']]),
+    env:()=>envFrom('#C9E400',[['#FFFFFF',6,8,6,14,14],['#5A6E00',-8,-4,4,14,14]]),
+    build(){
+      const g=new THREE.Group();
+      const m=new THREE.MeshPhysicalMaterial({color:0x1A2000,metalness:0.1,roughness:0.18,clearcoat:1});
+      // extruded bar grid, bent onto a shallow dome so it reads as inside a ball
+      for(let r=-3;r<=3;r++){
+        for(let c=-3;c<=3;c++){
+          if((r+c)%2===0 && Math.abs(r)+Math.abs(c)>1) continue;
+          const b=new THREE.Mesh(new THREE.BoxGeometry(0.19,0.19,0.16), m);
+          const x=c*0.22, y=r*0.22;
+          b.position.set(x, y, -(x*x+y*y)*0.55);
+          g.add(b);
+        }
+      }
+      return g;
+    }
+  },
+  {
+    name:'world-bloom', warp:13,                     // W4 language
+    bg:()=>gradientTex([[0,'#050208'],[0.6,'#07030F'],[1,'#0B0518']]),
+    env:()=>envFrom('#0A0414',[['#5B4BFF',6,4,6,12,12],['#FF6ED0',-7,-2,4,10,10]]),
+    build(){
+      const g=new THREE.Group();
+      // stacked additive blades -> glow without a post-processing pass
+      for(let layer=0; layer<5; layer++){
+        const t=layer/4;
+        const mat=new THREE.MeshBasicMaterial({
+          color:new THREE.Color(0x3A2BFF).lerp(new THREE.Color(0xFF9BE8), t),
+          transparent:true, opacity:0.30-t*0.045,
+          blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide });
+        for(let i=0;i<26;i++){
+          const a=(i/26-0.5)*Math.PI*0.92;
+          const blade=new THREE.Mesh(new THREE.PlaneGeometry(0.035, 1.5+layer*0.10), mat);
+          blade.position.set(Math.sin(a)*0.30, 0.34+Math.cos(a)*0.06, 0);
+          blade.rotation.z=-a*0.85;
+          g.add(blade);
+        }
+      }
+      return g;
+    }
+  },
+  {
+    name:'world-plant', warp:9,                     // W5 language
+    bg:()=>gradientTex([[0,'#E6D8F7'],[0.5,'#F1E7FB'],[1,'#CDB6EA']]),
+    env:()=>envFrom('#0B0616',[['#FFFFFF',7,7,6,20,20],['#C8A6FF',-9,-2,5,15,15],['#FFFFFF',0,-9,-6,12,12]]),
+    build(){
+      const g=new THREE.Group();
+      const chrome=new THREE.MeshStandardMaterial({color:0xEDEDF2,metalness:1,roughness:0.045});
+      const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.038,1.5,20), chrome);
+      stem.position.y=-0.42; g.add(stem);
+      for(let i=0;i<7;i++){                       // leaves
+        const l=new THREE.Mesh(new THREE.SphereGeometry(0.15,40,40), chrome);
+        l.scale.set(1,0.16,0.52);
+        const a=i*2.3, y=-0.95+i*0.17;
+        l.position.set(Math.cos(a)*0.16, y, Math.sin(a)*0.16);
+        l.rotation.set(0,-a,0.5); g.add(l);
+      }
+      for(let ring=0; ring<4; ring++){             // bloom
+        const n=5+ring*2, rad=0.05+ring*0.075;
+        for(let i=0;i<n;i++){
+          const a=(i/n)*Math.PI*2 + ring*0.5;
+          const p=new THREE.Mesh(new THREE.SphereGeometry(0.13,40,40), chrome);
+          p.scale.set(0.5,0.13,0.85);
+          p.position.set(Math.cos(a)*rad, 0.44+ring*0.02, Math.sin(a)*rad);
+          p.rotation.set(0,-a, 0.9-ring*0.19);
+          g.add(p);
+        }
+      }
+      return g;
+    }
+  },
+  {
+    name:'world-pearl', warp:26,                     // extra, same language
+    bg:()=>gradientTex([[0,'#F7E9DC'],[0.5,'#EBD3C6'],[1,'#B98F9E']]),
+    env:()=>envFrom('#160B10',[['#FFFFFF',7,7,6,20,20],['#FFB3C8',-9,-2,5,15,15]]),
+    build(){
+      const g=new THREE.Group();
+      const pearl=new THREE.MeshPhysicalMaterial({color:0xFFF4EC,metalness:0.25,roughness:0.10,
+        clearcoat:1, iridescence:1, iridescenceIOR:1.9, iridescenceThicknessRange:[180,760]});
+      for(let i=0;i<11;i++){
+        const r=0.18+rnd()*0.26;
+        const m=new THREE.Mesh(new THREE.SphereGeometry(r,64,64), pearl);
+        const a=rnd()*Math.PI*2, b=Math.acos(1-2*rnd()), rad=rnd()*0.60;
+        m.position.set(Math.sin(b)*Math.cos(a)*rad, Math.cos(b)*rad*0.85, Math.sin(b)*Math.sin(a)*rad);
+        g.add(m);
+      }
+      return g;
+    }
+  },
+];
+
+// ---------- render one world, then make the frame a ball ----------
+async function shoot(w){
+  seed = 99;
+  const scene = new THREE.Scene();
+  scene.background = w.bg();
+  scene.environment = w.env();
+  const key=new THREE.DirectionalLight(0xffffff,2.0); key.position.set(-3,4,5); scene.add(key);
+  const fill=new THREE.DirectionalLight(0xffffff,0.6); fill.position.set(4,-2,3); scene.add(fill);
+
+  const obj = w.build();
+  obj.rotation.set(0.10, 0.42, 0);
+  scene.add(obj);
+  camera.position.set(0,0,4.4); camera.lookAt(0,0,0);
+
+  renderer.render(scene, camera);
+
+  // composite: sphere shading + specular + circular cut
+  const out=canvas2d(), x=out.getContext('2d');
+  x.drawImage(renderer.domElement,0,0);
+
+  const shade=x.createRadialGradient(SIZE*0.36,SIZE*0.30,SIZE*0.03, SIZE*0.5,SIZE*0.5,SIZE*0.60);
+  shade.addColorStop(0,'rgba(255,255,255,0.16)');
+  shade.addColorStop(0.48,'rgba(255,255,255,0)');
+  shade.addColorStop(0.86,'rgba(0,0,0,0.18)');
+  shade.addColorStop(1,'rgba(0,0,0,0.46)');
+  x.fillStyle=shade; x.fillRect(0,0,SIZE,SIZE);
+
+  const spec=x.createRadialGradient(SIZE*0.33,SIZE*0.25,0, SIZE*0.33,SIZE*0.25,SIZE*0.20);
+  spec.addColorStop(0,'rgba(255,255,255,0.34)');
+  spec.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=spec; x.fillRect(0,0,SIZE,SIZE);
+
+  x.globalCompositeOperation='destination-in';
+  x.fillStyle='#000';                      // must be OPAQUE — destination-in keeps by alpha
+  x.beginPath(); x.arc(SIZE/2,SIZE/2,SIZE*0.487,0,Math.PI*2); x.fill();
+  x.globalCompositeOperation='source-over';
+
+  if(w.warp) liquify(out, w.warp, w.warpFreq || 2.6);
+
+  const blob=await new Promise(r=>out.toBlob(r,'image/png'));
+  await fetch('/save?name='+w.name+'.png',{method:'POST',body:blob});
+
+  const fig=document.createElement('figure');
+  const img=new Image(); img.src=URL.createObjectURL(blob);
+  fig.append(img, Object.assign(document.createElement('figcaption'),{textContent:w.name}));
+  document.getElementById('sheet').append(fig);
+  log('saved '+w.name+'.png ('+Math.round(blob.size/1024)+' KB)');
+}
+
+log('three r'+THREE.REVISION+' — '+WORLDS.length+' worlds @ '+SIZE+'px');
+for(const w of WORLDS) await shoot(w);
+log('DONE');
+document.title='DONE '+WORLDS.length;
+</script>
+</body>
+</html>

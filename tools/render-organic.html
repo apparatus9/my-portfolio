@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>render rig 2 — booting</title>
+<style>
+  body{margin:0;background:#1a1c22;color:#9fe;font:13px monospace;padding:12px}
+  #log{white-space:pre-wrap;line-height:1.6}
+  #sheet{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;background:#EFEDE8;padding:14px;border-radius:10px}
+  #sheet figure{margin:0;text-align:center;color:#555;font-size:11px}
+  #sheet img{width:190px;height:190px;display:block}
+</style>
+</head>
+<body>
+<div id="log">booting…</div>
+<div id="sheet"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const log = m => { document.getElementById('log').textContent += '\n' + m; };
+const SIZE = 1024;
+
+const renderer = new THREE.WebGLRenderer({ alpha:true, antialias:true, preserveDrawingBuffer:true });
+renderer.setSize(SIZE, SIZE); renderer.setPixelRatio(1);
+renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+const scene = new THREE.Scene();
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.background = null;
+
+// softer, more "studio" than v1 — plus a magenta rim, which is what gives
+// their furry objects that violet halo on the silhouette
+const addLight = (light, x,y,z) => { light.position.set(x,y,z); scene.add(light); return light; };
+addLight(new THREE.DirectionalLight(0xfff4e8, 1.7), -4, 5, 4);      // key, upper-left
+addLight(new THREE.DirectionalLight(0xffe4d0, 0.35), 4, -1.5, 2);   // fill
+addLight(new THREE.PointLight(0xff3fa4, 26, 20), 2.4, 1.6, -3.4);   // magenta rim
+addLight(new THREE.PointLight(0x5ad9ff, 14, 20), -3, -1, -3);       // cyan kicker
+
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
+
+// ---- deterministic value noise + fbm -------------------------------
+const fract = x => x - Math.floor(x);
+const hash = (x,y,z) => fract(Math.sin(x*127.1 + y*311.7 + z*74.7) * 43758.5453);
+const lerp = (a,b,t) => a + (b-a)*t;
+function vnoise(x,y,z){
+  const xi=Math.floor(x), yi=Math.floor(y), zi=Math.floor(z);
+  const xf=x-xi, yf=y-yi, zf=z-zi;
+  const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf), w=zf*zf*(3-2*zf);
+  let acc=0;
+  for(let i=0;i<2;i++)for(let j=0;j<2;j++)for(let k=0;k<2;k++){
+    const wt=(i?u:1-u)*(j?v:1-v)*(k?w:1-w);
+    acc += wt*hash(xi+i, yi+j, zi+k);
+  }
+  return acc*2-1;
+}
+function fbm(x,y,z,oct=4){
+  let a=0.5,f=1,s=0;
+  for(let i=0;i<oct;i++){ s+=a*vnoise(x*f,y*f,z*f); f*=2.03; a*=0.5; }
+  return s;
+}
+function displace(geo, amp, freq, oct){
+  const p=geo.attributes.position, v=new THREE.Vector3();
+  for(let i=0;i<p.count;i++){
+    v.fromBufferAttribute(p,i);
+    const n=fbm(v.x*freq, v.y*freq, v.z*freq, oct);
+    v.multiplyScalar(1+n*amp);
+    p.setXYZ(i,v.x,v.y,v.z);
+  }
+  geo.computeVertexNormals(); return geo;
+}
+
+// ---- FUR via shell texturing ---------------------------------------
+// N nested transparent copies, each keeping fewer texels of a noise map.
+// Outer shells keep the least -> strands taper to points. This is the
+// trick behind that mossy/fuzzy silhouette.
+function furTexture(res=1024){
+  const c=document.createElement('canvas'); c.width=c.height=res;
+  const ctx=c.getContext('2d'); const img=ctx.createImageData(res,res);
+  for(let i=0;i<res*res;i++){
+    const v=Math.random()*255;
+    img.data[i*4]=img.data[i*4+1]=img.data[i*4+2]=v; img.data[i*4+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const t=new THREE.CanvasTexture(c);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
+}
+const FUR = furTexture();
+
+function furred(geoFn, {shells=44, len=0.13, base=0x141414, tip=0xB44BE8, repeat=10, rough=0.75}={}){
+  const g=new THREE.Group();
+  const core=new THREE.Mesh(geoFn(), new THREE.MeshPhysicalMaterial({
+    color:new THREE.Color(base), roughness:rough, clearcoat:0.15
+  }));
+  g.add(core);
+  const cBase=new THREE.Color(base), cTip=new THREE.Color(tip);
+  for(let i=1;i<=shells;i++){
+    const t=i/shells;
+    const map=FUR.clone(); map.needsUpdate=true; map.repeat.set(repeat,repeat);
+    const m=new THREE.Mesh(geoFn(), new THREE.MeshStandardMaterial({
+      color:cBase.clone().lerp(cTip, Math.pow(t,1.5)),
+      alphaMap:map, transparent:true, alphaTest:0.30+t*0.62,
+      roughness:0.85, metalness:0, side:THREE.DoubleSide,
+      emissive:cTip, emissiveIntensity:t*t*0.35
+    }));
+    m.scale.setScalar(1 + t*len);
+    g.add(m);
+  }
+  return g;
+}
+
+const phys = o => new THREE.MeshPhysicalMaterial(o);
+
+// ---- THE SET: three material languages ------------------------------
+const SHAPES = [
+  // --- FURRY / MOSSY (their "Dirt Logo" language) ---
+  ['fur-sphere', () => furred(() => new THREE.SphereGeometry(1,96,96))],
+  ['fur-blob',   () => furred(() => displace(new THREE.SphereGeometry(1,128,128), 0.22, 1.7, 3),
+                              {tip:0x7CE04A, base:0x16240F, len:0.16, shells:48})],
+  ['fur-knot',   () => furred(() => new THREE.TorusKnotGeometry(0.72,0.26,180,28),
+                              {tip:0xFF7A2F, base:0x2A1206, len:0.11, repeat:14})],
+
+  // --- IRIDESCENT / LIQUID (their "Liquid Gradient") ---
+  ['iri-blob',   () => new THREE.Mesh(displace(new THREE.SphereGeometry(1,200,200), 0.17, 1.4, 4),
+                    phys({color:0x1B1B2E, roughness:0.10, metalness:0.35, clearcoat:1,
+                          iridescence:1, iridescenceIOR:1.8, iridescenceThicknessRange:[120,760]}))],
+  ['iri-torus',  () => new THREE.Mesh(displace(new THREE.TorusGeometry(0.85,0.34,64,220), 0.09, 2.2, 3),
+                    phys({color:0x101020, roughness:0.08, metalness:0.5, clearcoat:1,
+                          iridescence:1, iridescenceIOR:2.0, iridescenceThicknessRange:[200,900]}))],
+
+  // --- TRANSLUCENT / ORGANISM (their "Microorganism") ---
+  ['organism',   () => new THREE.Mesh(displace(new THREE.SphereGeometry(1,220,220), 0.26, 2.9, 5),
+                    phys({color:0xFF9BC4, roughness:0.22, transmission:0.92, thickness:1.5,
+                          ior:1.42, attenuationColor:new THREE.Color(0xE0356F), attenuationDistance:0.9,
+                          clearcoat:1, iridescence:0.55}))],
+  ['pod',        () => new THREE.Mesh(displace(new THREE.CapsuleGeometry(0.6,1.0,48,96), 0.10, 2.6, 4),
+                    phys({color:0xC6F06A, roughness:0.18, transmission:0.85, thickness:1.2,
+                          ior:1.45, attenuationColor:new THREE.Color(0x4E8F1B), attenuationDistance:1.1,
+                          clearcoat:1}))],
+
+  // --- FLOWER (their "Organic Flower") ---
+  ['flower',     () => {
+      const g=new THREE.Group();
+      const petalMat=phys({color:0xF25C7A, roughness:0.30, transmission:0.5, thickness:0.6,
+                           ior:1.4, clearcoat:0.8, side:THREE.DoubleSide, iridescence:0.4});
+      for(let ring=0; ring<3; ring++){
+        const n=6+ring*3, rad=0.30+ring*0.30, tilt=0.35+ring*0.42;
+        for(let i=0;i<n;i++){
+          const a=(i/n)*Math.PI*2 + ring*0.4;
+          const petal=new THREE.Mesh(
+            displace(new THREE.SphereGeometry(0.42,48,48), 0.07, 3.0, 3), petalMat);
+          petal.scale.set(0.44, 0.13, 1.0 - ring*0.12);
+          petal.position.set(Math.cos(a)*rad, ring*0.1, Math.sin(a)*rad);
+          petal.rotation.set(0, -a, tilt);
+          g.add(petal);
+        }
+      }
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.22,48,48),
+            phys({color:0xFFD34E, roughness:0.4, clearcoat:0.6})));
+      return g;
+    }],
+];
+
+const DIR = new THREE.Vector3(0.5, 0.40, 1).normalize();
+
+async function shoot(name, build){
+  const obj = build();
+  obj.rotation.set(0.26, 0.55, 0.10);
+  scene.add(obj);
+
+  const box = new THREE.Box3().setFromObject(obj);
+  const sph = box.getBoundingSphere(new THREE.Sphere());
+  const dist = sph.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov*0.5)) * 0.68;
+  camera.position.copy(sph.center).add(DIR.clone().multiplyScalar(dist));
+  camera.lookAt(sph.center); camera.updateProjectionMatrix();
+
+  renderer.render(scene, camera);
+  const blob = await new Promise(r => renderer.domElement.toBlob(r,'image/png'));
+  await fetch('/save?name='+name+'.png', {method:'POST', body:blob});
+
+  const fig=document.createElement('figure');
+  const img=new Image(); img.src=URL.createObjectURL(blob);
+  fig.appendChild(img); fig.appendChild(document.createTextNode(name));
+  document.getElementById('sheet').appendChild(fig);
+
+  scene.remove(obj);
+  obj.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); } });
+  log('saved '+name+'.png ('+Math.round(blob.size/1024)+' KB)');
+}
+
+log('three r'+THREE.REVISION+' — rendering '+SHAPES.length+' organic shapes @ '+SIZE+'px');
+for (const [n,b] of SHAPES) await shoot(n,b);
+log('DONE');
+document.title = 'DONE ' + SHAPES.length;
+</script>
+</body>
+</html>

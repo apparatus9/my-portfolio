@@ -13,3 +13,9 @@ desktop.ini
 # Deploy tooling
 .vercel/
 node_modules/
+
+.vercel
+
+# Rendered 3D frames — 16 MB of PNG, regenerable from tools/render-*.html.
+# The shipped WebP versions in assets/3d/ are tracked.
+assets/3d/*.png

@@ -90,3 +90,63 @@ with this:
 - All animations (particles, tilt, cursor, marquee, reveals) are vanilla JS/CSS,
   disabled automatically for `prefers-reduced-motion` and touch devices where
   appropriate.
+
+## 3D hero experiment (`specimen-drift.html`)
+
+A drag-to-slide carousel of five "orb worlds", built after studying how
+[dirtverse.co](https://dirtverse.co) does its header. It is a **separate page**,
+not yet wired into `index.html`.
+
+The geometry is a cylinder: ten slots, 36° apart, each pushed out along a
+**negative** `translateZ`. That sign is the whole trick — it puts the *centred*
+orb furthest away, so it sits small and calm while orbs swell as they swing
+outward. Pushing the ring forward instead crowds everything into a jammed band.
+
+```css
+.ring { transform: rotateY(var(--spin)) }
+.slot { transform: rotateY(calc(var(--i) * 36deg)) translateZ(-1150px) }
+```
+
+Drag spins it, a flick coasts on friction, then it snaps to the nearest slot.
+
+### Regenerating the orbs
+
+The orbs are rendered in-browser with three.js — no Blender, no stock assets.
+Serve the repo and open the rig; it renders each world and POSTs the PNGs back
+to `assets/3d/`, so it needs a server that accepts writes (see git history for
+the throwaway one used).
+
+```
+tools/render-worlds.html      the five shipped orbs
+tools/render-organisms.html   translucent creature set (unused)
+tools/render-organic.html     fur / iridescence experiments (unused)
+tools/render-shapes.html      smooth primitives (unused)
+tools/drag-physics-demo.html  minimal spring-drag reference
+```
+
+Each world is a painted background plus 3D content, rendered square, then cut to
+a circle in 2D canvas with sphere shading and a specular highlight composited on
+top. A domain-warped noise displacement is baked into the pixels — **alpha
+included**, which is what melts the circular edge into a bead of liquid.
+
+Then convert to WebP and rebuild the page:
+
+```bash
+cd assets/3d && for f in world-*.png; do
+  ffmpeg -y -i "$f" -c:v libwebp -q:v 84 -compression_level 6 "${f%.png}.webp"
+done
+cd ../.. && node tools/build-hero.mjs
+```
+
+### Two gotchas worth remembering
+
+**Don't use `<img>` for the orbs.** A host stylesheet's `img { max-width: 100% }`
+resolves against the zero-width `.ring` and collapses every orb to 0×0. They are
+`background-image` divs for that reason.
+
+**Don't inline the same asset twice.** Ten slots share five images; emitting the
+base64 per-slot doubled the page to 524 KB. The build script emits each payload
+once as a CSS class — 269 KB.
+
+The filename `specimen-drift.html` is historical and kept deliberately: a
+published artifact is bound to it, and renaming the file would break that link.

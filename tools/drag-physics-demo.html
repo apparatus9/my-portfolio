@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drag-to-orbit 3D hero — demo</title>
+<style>
+  :root{ --bg:#f4f2ee; --ink:#141414; }
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  body{ background:var(--bg); color:var(--ink); font:500 16px/1.4 -apple-system,Segoe UI,Inter,sans-serif; overflow:hidden }
+
+  /* 1. THE CAMERA -------------------------------------------------- */
+  .scene{
+    position:relative;
+    height:100svh;
+    perspective:900px;              /* shorter = more dramatic 3D */
+    perspective-origin:50% 45%;
+    touch-action:none;              /* required, or mobile scrolls instead of drags */
+    user-select:none;
+    -webkit-user-select:none;
+    cursor:grab;
+    overflow:hidden;
+  }
+  .scene.is-dragging{ cursor:grabbing }
+
+  /* 2. THE STAGE — the only thing JS rotates ------------------------ */
+  .stage{
+    position:absolute; inset:0;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+
+  /* 3. THE LAYERS — each parked at its own depth -------------------- */
+  .layer{
+    position:absolute;
+    transform-style:preserve-3d;
+    /* --z set inline per item */
+    transform:translate3d(-50%,-50%,var(--z));
+  }
+  /* separate element for the idle float so it never fights the 3D transform */
+  .bob{ animation:bob var(--dur,3s) var(--delay,0s) ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-14px) } }
+
+  .card{
+    width:var(--w,220px);
+    border-radius:14px;
+    overflow:hidden;
+    background:#fff;
+    box-shadow:0 24px 60px rgba(0,0,0,.14);
+    backface-visibility:hidden;
+  }
+  .card img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none }
+  .obj{
+    width:var(--w,220px); height:auto; display:block;
+    pointer-events:none;
+    filter:drop-shadow(0 26px 34px rgba(40,30,20,.20));
+    backface-visibility:hidden;
+  }
+  .blob{
+    width:var(--w,160px); aspect-ratio:1;
+    border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, #fff 0%, var(--c1) 42%, var(--c2) 100%);
+    box-shadow:0 30px 70px rgba(0,0,0,.18);
+  }
+
+  .title{
+    position:absolute; left:50%; top:50%;
+    transform:translate3d(-50%,-50%,120px);   /* in FRONT of the camera plane */
+    font-size:clamp(48px,9vw,140px); font-weight:800; letter-spacing:-.04em;
+    white-space:nowrap; pointer-events:none;
+  }
+
+  .hint{
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%);
+    font-size:13px; letter-spacing:.08em; text-transform:uppercase; opacity:.45;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .bob{ animation:none }
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+  <div class="stage" id="stage">
+
+    <div class="layer" style="--z:-240px; left:15%; top:28%"><div class="bob" style="--dur:3.2s;--delay:0s"><img class="obj" style="--w:230px" src="assets/3d/org-virus.webp" alt=""></div></div>
+    <div class="layer" style="--z:-640px; left:33%; top:70%"><div class="bob" style="--dur:3.8s;--delay:-0.6s"><img class="obj" style="--w:260px" src="assets/3d/org-lumpy.webp" alt=""></div></div>
+    <div class="layer" style="--z:-980px; left:46%; top:17%"><div class="bob" style="--dur:4.4s;--delay:-1.2s"><img class="obj" style="--w:320px" src="assets/3d/org-ring.webp" alt=""></div></div>
+    <div class="layer" style="--z:-170px; left:73%; top:26%"><div class="bob" style="--dur:2.9s;--delay:-1.8s"><img class="obj" style="--w:200px" src="assets/3d/org-urchin.webp" alt=""></div></div>
+    <div class="layer" style="--z:-780px; left:86%; top:64%"><div class="bob" style="--dur:4.1s;--delay:-2.4s"><img class="obj" style="--w:300px" src="assets/3d/org-anemone.webp" alt=""></div></div>
+    <div class="layer" style="--z:-430px; left:62%; top:82%"><div class="bob" style="--dur:3.5s;--delay:-0.9s"><img class="obj" style="--w:215px" src="assets/3d/org-cluster.webp" alt=""></div></div>
+    <div class="layer" style="--z:-1200px; left:21%; top:9%"><div class="bob" style="--dur:4.8s;--delay:-3.1s"><img class="obj" style="--w:340px" src="assets/3d/org-brain.webp" alt=""></div></div>
+    <div class="layer" style="--z:-540px; left:91%; top:15%"><div class="bob" style="--dur:3.3s;--delay:-2s"><img class="obj" style="--w:210px" src="assets/3d/org-pod.webp" alt=""></div></div>
+    <div class="layer" style="--z:-320px; left:7%; top:84%"><div class="bob" style="--dur:3.9s;--delay:-1.4s"><img class="obj" style="--w:200px" src="assets/3d/org-droplet.webp" alt=""></div></div>
+
+    <div class="title">omada</div>
+  </div>
+</div>
+
+<p class="hint">drag anywhere</p>
+
+<script>
+(() => {
+  const scene = document.getElementById('scene');
+  const stage = document.getElementById('stage');
+
+  // ---- tuning knobs -------------------------------------------------
+  const SENS      = 0.055;  // degrees of rotation per pixel dragged
+  const MAX       = 22;     // clamp, degrees — past ~25 the illusion breaks
+  const STIFFNESS = 0.10;   // spring pull toward target
+  const DAMPING   = 0.82;   // 0.9 = loose & floaty, 0.7 = tight & snappy
+  const RETURN    = 0.94;   // how fast the target decays back to centre on release
+  // -------------------------------------------------------------------
+
+  let targetX = 0, targetY = 0;   // where the drag wants the stage
+  let curX = 0, curY = 0;         // where it actually is
+  let velX = 0, velY = 0;
+  let dragging = false, lastX = 0, lastY = 0;
+
+  const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+
+  scene.addEventListener('pointerdown', e => {
+    dragging = true;
+    lastX = e.clientX; lastY = e.clientY;
+    scene.setPointerCapture(e.pointerId);
+    scene.classList.add('is-dragging');
+  });
+
+  scene.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    targetY = clamp(targetY + dx * SENS, MAX);   // horizontal drag -> rotateY
+    targetX = clamp(targetX - dy * SENS, MAX);   // vertical drag   -> rotateX
+  });
+
+  const end = e => {
+    dragging = false;
+    scene.classList.remove('is-dragging');
+    if (e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
+      scene.releasePointerCapture(e.pointerId);
+  };
+  scene.addEventListener('pointerup', end);
+  scene.addEventListener('pointercancel', end);
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function frame(){
+    if (!dragging){ targetX *= RETURN; targetY *= RETURN; }  // drift home
+
+    // critically-ish damped spring — this is what makes it feel physical
+    velX += (targetX - curX) * STIFFNESS; velX *= DAMPING; curX += velX;
+    velY += (targetY - curY) * STIFFNESS; velY *= DAMPING; curY += velY;
+
+    stage.style.transform =
+      `rotateX(${curX.toFixed(3)}deg) rotateY(${curY.toFixed(3)}deg)`;
+
+    requestAnimationFrame(frame);
+  }
+  if (reduced) { stage.style.transform = 'none'; } else { frame(); }
+})();
+</script>
+</body>
+</html>
