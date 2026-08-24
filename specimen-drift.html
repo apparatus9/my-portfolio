@@ -66,6 +66,10 @@
     position:absolute; left:0; top:0;
     transform-style:preserve-3d;
     transform:rotateY(calc(var(--i) * var(--step))) translateZ(var(--radius));
+    /* promote each orb to its own compositor layer: without it the browser
+       re-rasterises a 520px background image every frame as ring rotation
+       changes its projected scale. Trade-off: slight softening at extreme scale. */
+    will-change:transform;
   }
   .slot__f{ position:relative; animation:float var(--dur) var(--delay) ease-in-out infinite }
   @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-15px) } }
@@ -205,47 +209,73 @@
   setFlow(initial);
   flow.addEventListener('click', () => setFlow(!document.body.classList.contains('flow')));
 
-  const STEP = 36;          // 10 slots, 5 worlds twice - same as Dirt
+  const STEP = 36;   // 10 slots, 5 worlds twice
 
-  // ---- spin ---------------------------------------------------------
-  // Dragging tracks the pointer 1:1. On release the throw distance is
-  // projected from velocity, rounded to a detent, and reached with a
-  // critically damped spring: one continuous motion, no phase change.
-  const SENS       = 0.26;                  // degrees of ring per pixel
-  const STIFFNESS  = 90;                    // spring constant
-  const DAMPING    = 2 * Math.sqrt(90);     // critical - settles without overshoot
-  const THROW_TIME = 0.16;                  // seconds of velocity folded into the throw
-  const MAX_SLOTS  = 3;                     // ceiling on one flick
+  // Negative: each slot sits at a NEGATIVE translateZ, so a slot's screen
+  // position is x = -R*sin(angle) and increasing the angle carries orbs LEFT.
+  // The sign is what makes the orbs travel with your hand, not against it.
+  const SENS        = -0.26;                // degrees of ring per pixel
+  const STIFFNESS   = 90;
+  const DAMPING     = 2 * Math.sqrt(90);    // critical: settles without overshoot
+  const THROW_TIME  = 0.16;                 // seconds of velocity folded into the throw
+  const MAX_SLOTS   = 3;
+  const VEL_WINDOW  = 80;                   // ms of history the fling speed is read from
+  const MIN_DT      = 0.008;                // floor on the sample gap: events can share a
+                                            // timestamp, and dividing by ~0 explodes the spring
+  const MAX_VEL     = 1200;                 // deg/s ceiling on a fling (~33 slots/sec)
 
-  let spin = 0, vel = 0, target = 0;
-  let dragging = false, lastX = 0, lastT = 0, prev = performance.now();
+  let spin = 0, vel = 0, target = 0, drawn = null;
+  let dragging = false, pointerX = 0, appliedX = 0;
+  let history = [];
+  let prev = performance.now();
 
-  const render = () => { ring.style.transform = 'rotateY(' + spin.toFixed(3) + 'deg)'; };
+  // Fold whatever the pointer has moved since the last frame into the angle.
+  // Called from the frame loop AND from release, because a quick flick can
+  // deliver every one of its events before the next frame ever runs - and
+  // without this flush that whole gesture would be silently discarded.
+  const applyPending = () => {
+    const dx = pointerX - appliedX;
+    if (!dx) return;
+    appliedX = pointerX;
+    spin += dx * SENS;
+  };
+
+  // Speed measured over a time window rather than the last frame, so it is
+  // correct whether the gesture spanned twenty frames or none at all.
+  const flingVelocity = () => {
+    if (history.length < 2) return 0;
+    const last = history[history.length - 1];
+    let first = history[0];
+    for (const s of history) { if (last.t - s.t <= VEL_WINDOW) { first = s; break; } }
+    const dt = Math.max((last.t - first.t) / 1000, MIN_DT);
+    const v  = ((last.x - first.x) * SENS) / dt;   // degrees per second
+    return Math.max(-MAX_VEL, Math.min(MAX_VEL, v));
+  };
 
   scene.addEventListener('pointerdown', e => {
     if (e.target.closest('.bar') || e.target.closest('.foot')) return;
     dragging = true; vel = 0;
-    lastX = e.clientX; lastT = performance.now();
+    pointerX = appliedX = e.clientX;
+    history = [{ x: e.clientX, t: performance.now() }];
     scene.setPointerCapture(e.pointerId);
     scene.dataset.drag = '1';
   });
 
+  // Record only. A high-rate pointer fires far more often than the display
+  // refreshes; writing a transform per event is redundant work and jank.
   scene.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const now = performance.now();
-    const dt  = Math.max(now - lastT, 1) / 1000;
-    const d   = (e.clientX - lastX) * SENS;
-    spin += d;
-    // exponentially smoothed: one noisy last event should not decide the throw,
-    // but holding still before release should still cancel it
-    vel   = vel * 0.4 + (d / dt) * 0.6;     // degrees per second, not per frame
-    lastX = e.clientX; lastT = now;
-    render();
+    pointerX = e.clientX;
+    history.push({ x: e.clientX, t: performance.now() });
+    if (history.length > 12) history.shift();
   });
 
   const release = e => {
     if (!dragging) return;
-    dragging = false; scene.dataset.drag = '0';
+    applyPending();                 // <- must happen BEFORE the target is chosen
+    dragging = false;
+    scene.dataset.drag = '0';
+    vel = flingVelocity();
     const limit     = MAX_SLOTS * STEP;
     const projected = spin + Math.max(-limit, Math.min(limit, vel * THROW_TIME));
     target = Math.round(projected / STEP) * STEP;
@@ -254,27 +284,30 @@
   };
   scene.addEventListener('pointerup', release);
   scene.addEventListener('pointercancel', release);
+  scene.addEventListener('lostpointercapture', release);
 
   scene.addEventListener('keydown', e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    target = Math.round(spin / STEP) * STEP + (e.key === 'ArrowRight' ? STEP : -STEP);
+    target = Math.round(spin / STEP) * STEP + (e.key === 'ArrowRight' ? -STEP : STEP);
     e.preventDefault();
   });
 
   (function frame(now){
-    // time-based, so the feel is identical at 60Hz and 120Hz. Clamped so a
-    // backgrounded tab does not resume with one enormous integration step.
-    const dt = Math.min(Math.max((now - prev) / 1000, 0), 0.05);
+    const dt = Math.min(Math.max((now - prev) / 1000, 0.0001), 0.05);
     prev = now;
-    if (!dragging && dt > 0){
+
+    if (dragging){
+      applyPending();
+    } else {
       const accel = -STIFFNESS * (spin - target) - DAMPING * vel;
       vel  += accel * dt;
       spin += vel * dt;
-      render();
     }
+
+    const next = spin.toFixed(3);
+    if (next !== drawn){ ring.style.transform = 'rotateY(' + next + 'deg)'; drawn = next; }
+
     requestAnimationFrame(frame);
   })(performance.now());
-
-  render();
 })();
 </script>
