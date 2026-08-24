@@ -11,7 +11,7 @@
     --pill-in:#4A4844;
     --shadow: rgba(30,26,22,.22);
     /* the carousel, in one place */
-    --radius: -1150px;
+    --r: 1150px;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -53,6 +53,13 @@
   }
   .scene[data-drag="1"]{ cursor:grabbing }
   /* ring spins in place; the slots themselves carry the depth */
+  /* cursor parallax gets its own layer so it never fights the drag */
+  .tilt{
+    position:absolute; inset:0;
+    transform-style:preserve-3d;
+    transform:rotateX(0deg) rotateY(0deg);
+    will-change:transform;
+  }
   .ring{
     position:absolute; left:50%; top:47%; width:0; height:0;
     /* orbs are background-image divs, immune to any img reset */
@@ -65,10 +72,13 @@
   .slot{
     position:absolute; left:0; top:0;
     transform-style:preserve-3d;
-    transform:rotateY(calc(var(--i) * var(--step))) translateZ(var(--radius));
+    transform-origin:50% 50% var(--r);
+    transform:translateZ(calc(-1 * var(--r))) rotateY(calc(var(--i) * var(--step) * -1));
+    opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
   }
+  .slot.in{ opacity:1 }
   .slot__f{ position:relative; animation:float var(--dur) var(--delay) ease-in-out infinite }
-  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-15px) } }
+  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
 
   .shade{ position:absolute; left:50%; bottom:-7%; transform:translateX(-50%);
           width:84%; height:20%; border-radius:50%; pointer-events:none;
@@ -100,12 +110,13 @@
   .flow[aria-pressed="true"]{ background:var(--ink); color:var(--paper) }
 
   @media (max-width:820px){
-    :root{ --radius:-760px }
+    :root{ --r:760px }
     .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
   }
   @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
   @media (prefers-reduced-motion: reduce){
     .slot__f{ animation:none }
+    .slot{ transition:none }
     body.flow .orbimg{ filter:none }
   }
 </style>
@@ -182,7 +193,6 @@
   const scene = document.getElementById('scene');
   const flow  = document.getElementById('flow');
   const slots = [...document.querySelectorAll('.slot')];
-  const orbs  = slots.map(s => s.querySelector('.orbimg'));
   const N     = slots.length;
 
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -198,176 +208,155 @@
   setFlow(initial);
   flow.addEventListener('click', () => setFlow(!document.body.classList.contains('flow')));
 
+  const ring = document.getElementById('ring');
   const STEP = 36;
-  const SENS       = -0.26;
-  const STIFFNESS  = 90;
-  const DAMPING    = 2 * Math.sqrt(90);
-  const THROW_TIME = 0.16;
-  const MAX_SLOTS  = 3;
-  const VEL_WINDOW = 80;
-  const MIN_DT     = 0.008;
-  const MAX_VEL    = 1200;
 
-  // --- looseness -------------------------------------------------------
-  // Each orb hangs off the ring on its own spring rather than being welded to
-  // it. Stiffness falls across the ring, so a drag travels through the orbs as
-  // a wave instead of moving them as one rigid object. Under-damped on
-  // purpose: they overshoot slightly and settle, which is what reads as loose.
-  const LAG_K      = 46;
-  const LAG_SPREAD = 0.55;
-  const LAG_RATIO  = 0.62;
+  // ── the dirtverse motion model ───────────────────────────────────────
+  // Every constant below is lifted from their compiled Framer component, not
+  // eyeballed. Three independent layers stack: a cursor tilt on the outside,
+  // the drag spin in the middle, and a per-orb bob in CSS underneath.
+  const SENS        = 0.5;    // rotation = rot0 - dx * SENS
+  const ENTRY_DELAY = 0.25;   // seconds; their own site sits at 2.78, being below the fold
+  const ARM_AFTER   = 1200;   // ms after the entrance before a drag is accepted
+  const TILT_X      = 5;      // deg of rotateX, driven by cursor Y
+  const TILT_Y      = 3;      // deg of rotateY, driven by cursor X
+  const BOB_BASE    = 2.8;    // s, plus 0.08 per orb
+  const BOB_STAGGER = 0.08;
 
-  // --- mouse repulsion -------------------------------------------------
-  const PUSH_RADIUS = 300;
-  const PUSH_FORCE  = 52;
-  const PUSH_DROOP  = 0.34;
-  const PUSH_K      = 105;
-  const PUSH_RATIO  = 0.55;
-  const REPEL       = 1;
+  const coarse = matchMedia('(pointer: coarse)').matches;
 
-  const LEAN_REF = 330, LEAN_ROT = 7, LEAN_PULL = 0.072, LEAN_EASE = 9;
+  // framer-motion springs run at mass 1, so a = -k(x - target) - c*v.
+  // All three are overdamped: 24 against a critical 2*sqrt(35) = 11.8. That
+  // ratio, not the stiffness, is what makes the ring feel heavy and slow.
+  const SPIN_SPRING   = coarse ? { k: 28, c: 22 } : { k: 35, c: 24 };
+  const RADIUS_SPRING = coarse ? { k: 24, c: 18 } : { k: 30, c: 20 };
+  const TILT_SPRING   = { k: 50, c: 18 };
 
-  let spin = 0, vel = 0, target = 0;
-  let dragging = false, pointerX = 0, appliedX = 0;
-  let mouseX = null, mouseY = null;
-  let lean = 0, history = [], prev = performance.now();
+  // the tilt rides outside the spin, so cursor parallax never fights the drag
+  const tiltEl = document.createElement('div');
+  tiltEl.className = 'tilt';
+  ring.parentNode.insertBefore(tiltEl, ring);
+  tiltEl.appendChild(ring);
 
-  const st = slots.map((_, i) => {
-    const t = i / Math.max(N - 1, 1);
-    const k = LAG_K * (1 - LAG_SPREAD * t);
-    return { a: 0, av: 0, k, d: 2 * Math.sqrt(k) * LAG_RATIO,
-             x: 0, y: 0, vx: 0, vy: 0, drawnSlot: null, drawnOrb: null };
-  });
-
-  let radius = -1150, persp = 850;
+  let R = 1150;
   const readGeometry = () => {
-    const rs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius'));
-    const p  = parseFloat(getComputedStyle(scene).perspective);
-    if (rs) radius = rs;
-    if (p)  persp  = p;
+    const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--r'));
+    if (r) R = r;
   };
   readGeometry();
-  addEventListener('resize', readGeometry);
 
-  const applyPending = () => {
-    const dx = pointerX - appliedX;
-    if (!dx) return;
-    appliedX = pointerX;
-    spin += dx * SENS;
+  const mk = (v, cfg) => ({ v, target: v, vel: 0, k: cfg.k, c: cfg.c });
+  const advance = (s, dt) => {
+    let t = dt;
+    while (t > 0){                        // substep, so a dropped frame can't
+      const h = Math.min(t, 1 / 240);     // blow the integrator up
+      s.vel += (-s.k * (s.v - s.target) - s.c * s.vel) * h;
+      s.v   += s.vel * h;
+      t -= h;
+    }
   };
 
-  const flingVelocity = () => {
-    if (history.length < 2) return 0;
-    const last = history[history.length - 1];
-    let first = history[0];
-    for (const s of history) { if (last.t - s.t <= VEL_WINDOW) { first = s; break; } }
-    const dt = Math.max((last.t - first.t) / 1000, MIN_DT);
-    const v  = ((last.x - first.x) * SENS) / dt;
-    return Math.max(-MAX_VEL, Math.min(MAX_VEL, v));
-  };
+  // entrance: the ring unspins 90deg while the radius collapses from 1.8x
+  const spin  = mk(calm ? 180 : 270, SPIN_SPRING);
+  const rad   = mk(calm ? R : R * 1.8, RADIUS_SPRING);
+  const tiltX = mk(0, TILT_SPRING);
+  const tiltY = mk(0, TILT_SPRING);
+
+  // mismatched periods, not just staggered delays: the orbs drift out of phase
+  // and never resync, which is the whole trick behind the organic feel
+  slots.forEach((s, i) => {
+    const f = s.querySelector('.slot__f');
+    f.style.setProperty('--dur',   (BOB_BASE + i * BOB_STAGGER).toFixed(2) + 's');
+    f.style.setProperty('--delay', (calm ? 0 : ENTRY_DELAY + 1.2 + i * BOB_STAGGER).toFixed(2) + 's');
+  });
+
+  let armed = calm;
+  if (calm) slots.forEach(s => s.classList.add('in'));
+  else {
+    setTimeout(() => {
+      spin.target = 180;
+      rad.target  = R;
+      slots.forEach(s => s.classList.add('in'));
+    }, ENTRY_DELAY * 1000);
+    setTimeout(() => { armed = true; }, ENTRY_DELAY * 1000 + ARM_AFTER);
+  }
+
+  // --- drag: no inertia, no snap ---------------------------------------
+  // Their release handler genuinely does nothing. What reads as momentum is
+  // only the spring still catching up to where your finger left the target.
+  let dragging = false, x0 = 0, rot0 = 0;
 
   scene.addEventListener('pointerdown', e => {
-    if (e.target.closest('.bar') || e.target.closest('.foot')) return;
-    dragging = true; vel = 0;
-    pointerX = appliedX = e.clientX;
-    history = [{ x: e.clientX, t: performance.now() }];
+    if (!armed || e.target.closest('.bar') || e.target.closest('.foot')) return;
+    dragging = true; x0 = e.clientX; rot0 = spin.target;
     scene.setPointerCapture(e.pointerId);
     scene.dataset.drag = '1';
   });
 
+  let rect = null, tiltRaf = 0;
+  const dropRect = () => { rect = null; };
+  addEventListener('scroll', dropRect, { passive: true });
+  addEventListener('resize', () => {
+    dropRect(); readGeometry();
+    if (!dragging) rad.target = R;
+  }, { passive: true });
+
   scene.addEventListener('pointermove', e => {
-    mouseX = e.clientX; mouseY = e.clientY;
-    if (!dragging) return;
-    pointerX = e.clientX;
-    history.push({ x: e.clientX, t: performance.now() });
-    if (history.length > 12) history.shift();
+    if (dragging){ spin.target = rot0 - (e.clientX - x0) * SENS; return; }
+    if (calm || coarse || !armed || tiltRaf) return;
+    const px = e.clientX, py = e.clientY;
+    tiltRaf = requestAnimationFrame(() => {   // one cached rect read per frame
+      tiltRaf = 0;
+      if (!rect) rect = scene.getBoundingClientRect();
+      tiltX.target = -(((py - rect.top)  / rect.height) * 2 - 1) * TILT_X;
+      tiltY.target = -(((px - rect.left) / rect.width)  * 2 - 1) * TILT_Y;
+    });
   });
-  scene.addEventListener('pointerleave', () => { mouseX = null; mouseY = null; });
 
   const release = e => {
     if (!dragging) return;
-    applyPending();
     dragging = false; scene.dataset.drag = '0';
-    vel = flingVelocity();
-    const limit = MAX_SLOTS * STEP;
-    const projected = spin + Math.max(-limit, Math.min(limit, vel * THROW_TIME));
-    target = Math.round(projected / STEP) * STEP;
     if (e && e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
       scene.releasePointerCapture(e.pointerId);
   };
   scene.addEventListener('pointerup', release);
   scene.addEventListener('pointercancel', release);
   scene.addEventListener('lostpointercapture', release);
+  scene.addEventListener('pointerleave', e => {
+    release(e);
+    tiltX.target = 0; tiltY.target = 0;   // settle back to square
+  });
 
   scene.addEventListener('keydown', e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    target = Math.round(spin / STEP) * STEP + (e.key === 'ArrowRight' ? -STEP : STEP);
+    spin.target += (e.key === 'ArrowRight' ? -STEP : STEP);
     e.preventDefault();
   });
 
-  const RAD = Math.PI / 180;
-  const PUSH_D = 2 * Math.sqrt(PUSH_K) * PUSH_RATIO;
+  let ringDrawn = null, tiltDrawn = null, originDrawn = null;
+  let prev = performance.now();
 
   (function frame(now){
     const dt = Math.min(Math.max((now - prev) / 1000, 0.0001), 0.05);
     prev = now;
 
-    if (dragging) applyPending();
-    else {
-      const accel = -STIFFNESS * (spin - target) - DAMPING * vel;
-      vel  += accel * dt;
-      spin += vel * dt;
-    }
+    advance(spin, dt); advance(rad, dt); advance(tiltX, dt); advance(tiltY, dt);
 
-    if (!calm){
-      const want = Math.max(-1, Math.min(1, vel / LEAN_REF));
-      lean += (want - lean) * Math.min(1, dt * LEAN_EASE);
-    }
-    const la = Math.abs(lean);
-    const leanCss = calm ? '' :
-      ' rotate(' + (-lean * LEAN_ROT).toFixed(2) + 'deg) scale(' +
-      (1 + la * LEAN_PULL).toFixed(3) + ',' + (1 - la * LEAN_PULL * 0.62).toFixed(3) + ')';
+    const t = 'rotateX(' + tiltX.v.toFixed(3) + 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg)';
+    if (t !== tiltDrawn){ tiltEl.style.transform = t; tiltDrawn = t; }
 
-    const cx = innerWidth / 2, cy = innerHeight * 0.47;
+    const r = 'rotateY(' + spin.v.toFixed(3) + 'deg)';
+    if (r !== ringDrawn){ ring.style.transform = r; ringDrawn = r; }
 
-    for (let i = 0; i < N; i++){
-      const s = st[i];
-
-      // 1. chase the ring angle on a personal spring, so this orb arrives late
-      s.av += (-s.k * (s.a - spin) - s.d * s.av) * dt;
-      s.a  += s.av * dt;
-
-      const phi = (i * STEP + s.a) * RAD;
-
-      // 2. project to screen space rather than measuring: reading ten bounding
-      //    boxes every frame would force a layout pass
-      let tx = 0, ty = 0;
-      if (!calm && mouseX !== null){
-        const denom = persp - radius * Math.cos(phi);
-        if (denom > 1){
-          const scale = persp / denom;
-          const sx = cx + radius * Math.sin(phi) * scale;
-          const dx = sx - mouseX, dy = cy - mouseY;
-          const dist = Math.hypot(dx, dy) || 1;
-          if (dist < PUSH_RADIUS){
-            const f = Math.pow(1 - dist / PUSH_RADIUS, 2) * PUSH_FORCE * REPEL;
-            tx = (dx / dist) * f;
-            ty = (dy / dist) * f + Math.abs(f) * PUSH_DROOP;
-          }
-        }
+    // the slots only need rewriting while the radius is still in motion
+    const origin = '50% 50% ' + rad.v.toFixed(1) + 'px';
+    if (origin !== originDrawn){
+      const z = 'translateZ(' + (-rad.v).toFixed(1) + 'px) ';
+      for (let i = 0; i < N; i++){
+        slots[i].style.transformOrigin = origin;
+        slots[i].style.transform = z + 'rotateY(' + (-i * STEP) + 'deg)';
       }
-
-      // 3. shy away on a second, looser spring so the shove lands late
-      s.vx += (-PUSH_K * (s.x - tx) - PUSH_D * s.vx) * dt;
-      s.vy += (-PUSH_K * (s.y - ty) - PUSH_D * s.vy) * dt;
-      s.x  += s.vx * dt;
-      s.y  += s.vy * dt;
-
-      const slotCss = 'rotateY(' + (i * STEP + s.a).toFixed(3) + 'deg) translateZ(' + radius + 'px)';
-      if (slotCss !== s.drawnSlot){ slots[i].style.transform = slotCss; s.drawnSlot = slotCss; }
-
-      const orbCss = 'translate(' + s.x.toFixed(2) + 'px,' + s.y.toFixed(2) + 'px)' + leanCss;
-      if (orbCss !== s.drawnOrb){ orbs[i].style.transform = orbCss; s.drawnOrb = orbCss; }
+      originDrawn = origin;
     }
 
     requestAnimationFrame(frame);
