@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>render rig 3 — organisms</title>
+<style>
+  body{margin:0;background:#15171c;color:#9fe;font:13px monospace;padding:12px}
+  #log{white-space:pre-wrap;line-height:1.6}
+  #sheet{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;background:#EFEDE8;padding:14px;border-radius:10px}
+  #sheet figure{margin:0;text-align:center;color:#555;font-size:11px}
+  #sheet img{width:180px;height:180px;display:block}
+</style>
+</head>
+<body>
+<div id="log">booting…</div>
+<div id="sheet"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const log = m => { document.getElementById('log').textContent += '\n' + m; };
+const SIZE = 1024;
+
+const renderer = new THREE.WebGLRenderer({ alpha:true, antialias:true, preserveDrawingBuffer:true });
+renderer.setSize(SIZE,SIZE); renderer.setPixelRatio(1);
+renderer.setClearColor(0x000000,0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+const scene = new THREE.Scene();
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.background = null;
+
+const addLight=(l,x,y,z)=>{l.position.set(x,y,z);scene.add(l);return l};
+addLight(new THREE.DirectionalLight(0xfff2e6, 1.5), -4, 4.5, 4);     // key
+addLight(new THREE.DirectionalLight(0xffdccb, 0.30), 3.5, -2, 2.5);  // fill
+// BACK light is what sells translucency — it lights the far side so the
+// silhouette glows, which is how flesh/wax/jelly actually reads.
+addLight(new THREE.PointLight(0xff5f96, 42, 24), 0.6, 1.2, -4.2);
+addLight(new THREE.PointLight(0xffc98a, 16, 20), -2.6, -1.4, -3.0);
+
+const camera = new THREE.PerspectiveCamera(28,1,0.1,100);
+
+// ---- deterministic noise -------------------------------------------
+const fract=x=>x-Math.floor(x);
+const hash=(x,y,z)=>fract(Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453);
+function vnoise(x,y,z){
+  const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);
+  const xf=x-xi,yf=y-yi,zf=z-zi;
+  const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf),w=zf*zf*(3-2*zf);
+  let a=0;
+  for(let i=0;i<2;i++)for(let j=0;j<2;j++)for(let k=0;k<2;k++)
+    a+=(i?u:1-u)*(j?v:1-v)*(k?w:1-w)*hash(xi+i,yi+j,zi+k);
+  return a*2-1;
+}
+function fbm(x,y,z,oct=4,gain=0.5){
+  let a=0.5,f=1,s=0;
+  for(let i=0;i<oct;i++){s+=a*vnoise(x*f,y*f,z*f);f*=2.03;a*=gain}
+  return s;
+}
+// ridged noise -> the brain-coral / convoluted look
+function ridged(x,y,z,oct=4){
+  let a=0.5,f=1,s=0;
+  for(let i=0;i<oct;i++){s+=a*(1-Math.abs(vnoise(x*f,y*f,z*f)));f*=2.1;a*=0.5}
+  return s*2-1;
+}
+function sculpt(geo, fn){
+  const p=geo.attributes.position, v=new THREE.Vector3();
+  for(let i=0;i<p.count;i++){ v.fromBufferAttribute(p,i);
+    v.multiplyScalar(1+fn(v.x,v.y,v.z)); p.setXYZ(i,v.x,v.y,v.z); }
+  geo.computeVertexNormals(); return geo;
+}
+let seed=1337; const rnd=()=>{seed=(seed*1664525+1013904223)>>>0; return seed/4294967296};
+
+// ---- ONE MATERIAL LANGUAGE -----------------------------------------
+// Real `transmission` punches holes on a transparent canvas (it refracts
+// the background, and the background is nothing). So translucency here is
+// faked: strong sheen for the fresnel edge, clearcoat for the wet film,
+// and a low emissive to imply light bleeding through the body.
+const flesh = (color, {deep, rough=0.34, emis=0.10, iri=0.28}={}) =>
+  new THREE.MeshPhysicalMaterial({
+    color:new THREE.Color(color),
+    roughness:rough, metalness:0,
+    clearcoat:1, clearcoatRoughness:0.26,
+    sheen:1, sheenColor:new THREE.Color(deep||color).lerp(new THREE.Color(0xffffff),0.35),
+    sheenRoughness:0.45,
+    iridescence:iri, iridescenceIOR:1.35, iridescenceThicknessRange:[100,420],
+    emissive:new THREE.Color(deep||color), emissiveIntensity:emis,
+  });
+
+const P = { coral:0xF0728A, salmon:0xFF9E8A, rose:0xC8395F, flesh:0xF7C3B4,
+            plum:0x8E3163, cream:0xF2DCC6, blush:0xE86A9B };
+
+// ---- FORMS ----------------------------------------------------------
+function lumpy(){ // classic microorganism
+  return new THREE.Mesh(
+    sculpt(new THREE.SphereGeometry(1,220,220),(x,y,z)=>fbm(x*3.0,y*3.0,z*3.0,5)*0.26),
+    flesh(P.coral,{deep:P.rose}));
+}
+function brain(){ // ridged convolutions
+  return new THREE.Mesh(
+    sculpt(new THREE.SphereGeometry(1,240,240),(x,y,z)=>ridged(x*3.4,y*3.4,z*3.4,4)*0.13),
+    flesh(P.blush,{deep:P.plum,rough:0.30}));
+}
+function virus(){ // capsid + spikes
+  const g=new THREE.Group();
+  const m=flesh(P.rose,{deep:P.plum,rough:0.30});
+  g.add(new THREE.Mesh(sculpt(new THREE.IcosahedronGeometry(1,6),
+        (x,y,z)=>fbm(x*4,y*4,z*4,3)*0.05), m));
+  const dirs=new THREE.IcosahedronGeometry(1,1).attributes.position;
+  const seen=new Set(), v=new THREE.Vector3();
+  const spikeMat=flesh(P.flesh,{deep:P.rose,rough:0.28});
+  for(let i=0;i<dirs.count;i++){
+    v.fromBufferAttribute(dirs,i).normalize();
+    const k=v.toArray().map(n=>n.toFixed(2)).join(','); if(seen.has(k))continue; seen.add(k);
+    const s=new THREE.Group();
+    const stalk=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.055,0.42,10), spikeMat);
+    stalk.position.y=0.21; s.add(stalk);
+    const knob=new THREE.Mesh(new THREE.SphereGeometry(0.10,24,24), spikeMat);
+    knob.position.y=0.44; s.add(knob);
+    s.position.copy(v).multiplyScalar(0.97);
+    s.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), v);
+    g.add(s);
+  }
+  return g;
+}
+function anemone(){ // body + tentacles
+  const g=new THREE.Group();
+  const bodyMat=flesh(P.salmon,{deep:P.rose});
+  g.add(new THREE.Mesh(sculpt(new THREE.SphereGeometry(0.72,140,140),
+        (x,y,z)=>fbm(x*4,y*4,z*4,4)*0.10), bodyMat));
+  const tMat=flesh(P.flesh,{deep:P.coral,rough:0.30,emis:0.14});
+  for(let i=0;i<64;i++){
+    const th=Math.acos(1-2*rnd()), ph=rnd()*Math.PI*2;
+    const d=new THREE.Vector3(Math.sin(th)*Math.cos(ph),Math.cos(th),Math.sin(th)*Math.sin(ph));
+    const perp=new THREE.Vector3(-d.z,0,d.x).normalize();
+    const pts=[];
+    for(let s=0;s<=6;s++){
+      const t=s/6, curl=Math.sin(t*2.4)*0.30*(0.5+rnd()*0.5);
+      pts.push(d.clone().multiplyScalar(0.62+t*0.72).addScaledVector(perp,curl));
+    }
+    const tube=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),26,0.036,10,false);
+    g.add(new THREE.Mesh(tube,tMat));
+  }
+  return g;
+}
+function cluster(){ // budding cell colony
+  const g=new THREE.Group(); const m=flesh(P.coral,{deep:P.rose});
+  const spots=[[0,0,0,1],[0.85,0.35,0.2,0.62],[-0.7,0.55,-0.3,0.5],
+               [0.25,-0.85,0.35,0.55],[-0.45,-0.5,0.7,0.42],[0.55,0.75,-0.6,0.36]];
+  for(const [x,y,z,r] of spots){
+    const s=new THREE.Mesh(sculpt(new THREE.SphereGeometry(r,110,110),
+      (a,b,c)=>fbm(a*5,b*5,c*5,4)*0.10), m);
+    s.position.set(x*0.72,y*0.72,z*0.72); g.add(s);
+  }
+  return g;
+}
+function pod(){ // seed pod / spore
+  return new THREE.Mesh(
+    sculpt(new THREE.CapsuleGeometry(0.62,0.95,64,120),
+      (x,y,z)=>ridged(x*5,y*2.2,z*5,3)*0.07 + fbm(x*2,y*2,z*2,3)*0.05),
+    flesh(P.cream,{deep:P.salmon,rough:0.38,emis:0.13}));
+}
+function tendrilRing(){ // lumpy torus with fine bumps
+  return new THREE.Mesh(
+    sculpt(new THREE.TorusGeometry(0.84,0.33,80,260),
+      (x,y,z)=>fbm(x*4.5,y*4.5,z*4.5,4)*0.10),
+    flesh(P.plum,{deep:0x4A1436,rough:0.28,iri:0.42}));
+}
+function droplet(){ // smooth wet blob, the calm one in the set
+  return new THREE.Mesh(
+    sculpt(new THREE.SphereGeometry(1,200,200),(x,y,z)=>fbm(x*1.5,y*1.5,z*1.5,3)*0.16),
+    flesh(P.flesh,{deep:P.coral,rough:0.22,emis:0.14,iri:0.5}));
+}
+function spikeBall(){ // fine urchin
+  const g=new THREE.Group(); const m=flesh(P.rose,{deep:P.plum});
+  g.add(new THREE.Mesh(sculpt(new THREE.SphereGeometry(0.78,140,140),
+        (x,y,z)=>fbm(x*5,y*5,z*5,4)*0.08), m));
+  const sm=flesh(P.blush,{deep:P.plum,rough:0.26,emis:0.16});
+  for(let i=0;i<120;i++){
+    const th=Math.acos(1-2*rnd()), ph=rnd()*Math.PI*2;
+    const d=new THREE.Vector3(Math.sin(th)*Math.cos(ph),Math.cos(th),Math.sin(th)*Math.sin(ph));
+    const len=0.34+rnd()*0.26;
+    const sp=new THREE.Mesh(new THREE.ConeGeometry(0.028,len,8), sm);
+    sp.position.copy(d).multiplyScalar(0.76+len/2);
+    sp.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), d);
+    g.add(sp);
+  }
+  return g;
+}
+
+const SHAPES = [
+  ['org-lumpy', lumpy], ['org-brain', brain], ['org-virus', virus],
+  ['org-anemone', anemone], ['org-cluster', cluster], ['org-pod', pod],
+  ['org-ring', tendrilRing], ['org-droplet', droplet], ['org-urchin', spikeBall],
+];
+
+const DIR=new THREE.Vector3(0.5,0.40,1).normalize();
+
+async function shoot(name,build){
+  seed=1337;                       // same seed every run -> reproducible
+  const o=build(); o.rotation.set(0.24,0.52,0.08); scene.add(o);
+  const sph=new THREE.Box3().setFromObject(o).getBoundingSphere(new THREE.Sphere());
+  const d=sph.radius/Math.sin(THREE.MathUtils.degToRad(camera.fov*0.5))*0.68;
+  camera.position.copy(sph.center).add(DIR.clone().multiplyScalar(d));
+  camera.lookAt(sph.center); camera.updateProjectionMatrix();
+  renderer.render(scene,camera);
+  const blob=await new Promise(r=>renderer.domElement.toBlob(r,'image/png'));
+  await fetch('/save?name='+name+'.png',{method:'POST',body:blob});
+  const fig=document.createElement('figure');
+  const img=new Image(); img.src=URL.createObjectURL(blob);
+  fig.append(img, document.createTextNode(name));
+  document.getElementById('sheet').appendChild(fig);
+  scene.remove(o); o.traverse(x=>{if(x.isMesh)x.geometry.dispose()});
+  log('saved '+name+'.png ('+Math.round(blob.size/1024)+' KB)');
+}
+
+log('three r'+THREE.REVISION+' — '+SHAPES.length+' organisms @ '+SIZE+'px');
+for(const [n,b] of SHAPES) await shoot(n,b);
+log('DONE');
+document.title='DONE '+SHAPES.length;
+</script>
+</body>
+</html>
