@@ -57,7 +57,7 @@
     position:absolute; left:50%; top:47%; width:0; height:0;
     /* orbs are background-image divs, immune to any img reset */
     transform-style:preserve-3d;
-    transform:rotateY(var(--spin,0deg));
+    transform:rotateY(0deg);   /* JS writes transform directly; a custom property forces a style recalc each frame */
     will-change:transform;
   }
 
@@ -181,9 +181,6 @@
   const ring  = document.getElementById('ring');
   const flow  = document.getElementById('flow');
 
-  const STEP = 36;   // 10 slots, 5 worlds twice - same as Dirt
-
-  // ---- flow toggle -------------------------------------------------
   const setFlow = on => {
     document.body.classList.toggle('flow', on);
     flow.setAttribute('aria-pressed', String(on));
@@ -195,54 +192,76 @@
   setFlow(initial);
   flow.addEventListener('click', () => setFlow(!document.body.classList.contains('flow')));
 
-  // ---- spin: drag, fling, then settle onto the nearest slot ---------
-  const SENS = 0.26;    // degrees of ring rotation per pixel dragged
-  const FRICTION = 0.94;
-  const SNAP = 0.11;    // pull toward the nearest slot once the fling dies
-  const HANDOVER = 0.7; // deg/frame below which friction gives way to snapping
+  const STEP = 36;          // 10 slots, 5 worlds twice - same as Dirt
 
-  let spin = 0, vel = 0, dragging = false, lastX = 0;
+  // ---- spin ---------------------------------------------------------
+  // Dragging tracks the pointer 1:1. On release the throw distance is
+  // projected from velocity, rounded to a detent, and reached with a
+  // critically damped spring: one continuous motion, no phase change.
+  const SENS       = 0.26;                  // degrees of ring per pixel
+  const STIFFNESS  = 90;                    // spring constant
+  const DAMPING    = 2 * Math.sqrt(90);     // critical - settles without overshoot
+  const THROW_TIME = 0.16;                  // seconds of velocity folded into the throw
+  const MAX_SLOTS  = 3;                     // ceiling on one flick
+
+  let spin = 0, vel = 0, target = 0;
+  let dragging = false, lastX = 0, lastT = 0, prev = performance.now();
+
+  const render = () => { ring.style.transform = 'rotateY(' + spin.toFixed(3) + 'deg)'; };
 
   scene.addEventListener('pointerdown', e => {
     if (e.target.closest('.bar') || e.target.closest('.foot')) return;
-    dragging = true; vel = 0; lastX = e.clientX;
+    dragging = true; vel = 0;
+    lastX = e.clientX; lastT = performance.now();
     scene.setPointerCapture(e.pointerId);
     scene.dataset.drag = '1';
   });
+
   scene.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const d = (e.clientX - lastX) * SENS;
-    lastX = e.clientX;
+    const now = performance.now();
+    const dt  = Math.max(now - lastT, 1) / 1000;
+    const d   = (e.clientX - lastX) * SENS;
     spin += d;
-    // smoothed so a flick carries, but capped: uncapped, one brisk drag
-    // coasts through a full turn and lands back where it started
-    vel = Math.max(-5, Math.min(5, vel * 0.6 + d * 0.4));
+    // exponentially smoothed: one noisy last event should not decide the throw,
+    // but holding still before release should still cancel it
+    vel   = vel * 0.4 + (d / dt) * 0.6;     // degrees per second, not per frame
+    lastX = e.clientX; lastT = now;
+    render();
   });
-  const end = e => {
+
+  const release = e => {
+    if (!dragging) return;
     dragging = false; scene.dataset.drag = '0';
-    if (e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
+    const limit     = MAX_SLOTS * STEP;
+    const projected = spin + Math.max(-limit, Math.min(limit, vel * THROW_TIME));
+    target = Math.round(projected / STEP) * STEP;
+    if (e && e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
       scene.releasePointerCapture(e.pointerId);
   };
-  scene.addEventListener('pointerup', end);
-  scene.addEventListener('pointercancel', end);
+  scene.addEventListener('pointerup', release);
+  scene.addEventListener('pointercancel', release);
 
   scene.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft')  { vel = 0; spin -= STEP; e.preventDefault(); }
-    if (e.key === 'ArrowRight') { vel = 0; spin += STEP; e.preventDefault(); }
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    target = Math.round(spin / STEP) * STEP + (e.key === 'ArrowRight' ? STEP : -STEP);
+    e.preventDefault();
   });
 
-  (function frame(){
-    if (!dragging){
-      if (Math.abs(vel) > HANDOVER){
-        spin += vel; vel *= FRICTION;             // still flinging
-      } else {
-        vel = 0;
-        const target = Math.round(spin / STEP) * STEP;
-        spin += (target - spin) * SNAP;           // settle into the detent
-      }
+  (function frame(now){
+    // time-based, so the feel is identical at 60Hz and 120Hz. Clamped so a
+    // backgrounded tab does not resume with one enormous integration step.
+    const dt = Math.min(Math.max((now - prev) / 1000, 0), 0.05);
+    prev = now;
+    if (!dragging && dt > 0){
+      const accel = -STIFFNESS * (spin - target) - DAMPING * vel;
+      vel  += accel * dt;
+      spin += vel * dt;
+      render();
     }
-    ring.style.setProperty('--spin', spin.toFixed(3) + 'deg');
     requestAnimationFrame(frame);
-  })();
+  })(performance.now());
+
+  render();
 })();
 </script>
