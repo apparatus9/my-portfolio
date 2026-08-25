@@ -19,3 +19,11 @@ node_modules/
 # Rendered 3D frames — 16 MB of PNG, regenerable from tools/render-*.html.
 # The shipped WebP versions in assets/3d/ are tracked.
 assets/3d/*.png
+
+# Turntable frame sequences — thousands of PNGs, hundreds of MB, and fully
+# regenerable from tools/render-worlds.html with ?frames=
+assets/3d/frames/
+
+# Source models and clips fed to the rigs. Large binaries that are inputs,
+# not outputs; the rendered results in assets/3d/ are what gets tracked.
+incoming/

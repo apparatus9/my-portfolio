@@ -76,6 +76,11 @@
   @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
 
 
+  /* A video face sizes like an image face. max-width matters: a host
+     stylesheet's video{max-width:100%} resolves against the zero-width .ring
+     and collapses it — the same trap that rules out <img> here. */
+  .orbvid{ max-width:none; object-fit:contain; background:none }
+
   .orbimg{
     width:520px; height:520px;
     margin:-260px 0 0 -260px;          /* centre the orb on its slot origin */
@@ -124,11 +129,11 @@
     <div class="slot" style="--i:2"><div class="slot__f"><div class="orbimg w2" role="img" aria-label="Marbled liquid world"></div></div></div>
     <div class="slot" style="--i:3"><div class="slot__f"><div class="orbimg w3" role="img" aria-label="Chrome plant world"></div></div></div>
     <div class="slot" style="--i:4"><div class="slot__f"><div class="orbimg w4" role="img" aria-label="Chrome cluster world"></div></div></div>
-    <div class="slot" style="--i:5"><div class="slot__f"><div class="orbimg w0" role="img" aria-label="Acid grid world"></div></div></div>
-    <div class="slot" style="--i:6"><div class="slot__f"><div class="orbimg w1" role="img" aria-label="Glowing bloom world"></div></div></div>
-    <div class="slot" style="--i:7"><div class="slot__f"><div class="orbimg w2" role="img" aria-label="Marbled liquid world"></div></div></div>
-    <div class="slot" style="--i:8"><div class="slot__f"><div class="orbimg w3" role="img" aria-label="Chrome plant world"></div></div></div>
-    <div class="slot" style="--i:9"><div class="slot__f"><div class="orbimg w4" role="img" aria-label="Chrome cluster world"></div></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/world-earth.webm" poster="assets/3d/world-earth.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Rotating Earth"></video></div></div>
+    <div class="slot" style="--i:6"><div class="slot__f"><div class="orbimg w0" role="img" aria-label="Acid grid world"></div></div></div>
+    <div class="slot" style="--i:7"><div class="slot__f"><div class="orbimg w1" role="img" aria-label="Glowing bloom world"></div></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><div class="orbimg w2" role="img" aria-label="Marbled liquid world"></div></div></div>
+    <div class="slot" style="--i:9"><div class="slot__f"><div class="orbimg w3" role="img" aria-label="Chrome plant world"></div></div></div>
   </div>
 </div>
 
@@ -146,6 +151,44 @@
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const ring = document.getElementById('ring');
+
+  // Chrome declines the autoplay attribute often enough that a video orb just
+  // sits on its poster frame. Ask directly, and retry on first interaction.
+  // Getting a video orb to actually run turns out to need belt and braces.
+  // The autoplay attribute can be declined, a play() call can be rejected
+  // before any data has arrived, and playbackRate is reset by some loads. So:
+  // ask on every event that means "more is ready", and again on first input.
+  const FACE_RATE = 1;            // full rate: the slow revolution is baked into the frames now
+  const faces = [...document.querySelectorAll('video.orbvid')];
+  const startFaces = () => faces.forEach(v => {
+    v.playbackRate = FACE_RATE;
+    const p = v.play();
+    if (p) p.catch(() => {});
+  });
+  faces.forEach(v => {
+    ['loadeddata', 'canplay', 'canplaythrough', 'stalled', 'suspend'].forEach(
+      e => v.addEventListener(e, startFaces));
+  });
+  startFaces();
+  addEventListener('pointerdown', startFaces);
+  addEventListener('keydown', startFaces);
+  document.addEventListener('visibilitychange', startFaces);
+
+  // ?debug=1 turns the footer into a live readout of what the video is doing
+  if (new URLSearchParams(location.search).get('debug') === '1'){
+    const out = document.querySelector('.foot span');
+    setInterval(() => {
+      out.textContent = faces.map(v =>
+        (v.paused ? 'PAUSED' : 'playing') +
+        ' ready:' + v.readyState +
+        ' t:' + v.currentTime.toFixed(1) +
+        ' rate:' + v.playbackRate +
+        ' size:' + v.videoWidth + 'x' + v.videoHeight +
+        (v.error ? ' ERR:' + v.error.code : '')
+      ).join(' | ') || 'no video faces';
+    }, 250);
+  }
+
   const STEP = 36;
 
   // ── the dirtverse motion model ───────────────────────────────────────

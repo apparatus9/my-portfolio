@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Earth orb — preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&display=swap">
+<style>
+  :root{ --paper:#FFFFFF; --ink:#0A0A0A; --mute:#8A8A85; --rule:#EAEAE6 }
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  body{ background:var(--paper); color:var(--ink);
+        font-family:Archivo,system-ui,sans-serif; min-height:100vh;
+        display:flex; flex-direction:column; align-items:center;
+        justify-content:center; gap:48px; padding:56px 24px }
+  h1{ font-size:13px; font-weight:500; letter-spacing:.24em;
+      text-transform:uppercase; color:var(--mute) }
+  .row{ display:flex; align-items:flex-start; justify-content:center;
+        gap:64px; flex-wrap:wrap }
+  figure{ display:flex; flex-direction:column; align-items:center; gap:16px;
+          max-width:340px }
+  video{ display:block; background:none; width:300px; height:300px }
+  .name{ font-size:15px; font-weight:700; letter-spacing:-.02em }
+  .meta{ font-size:11px; font-weight:500; letter-spacing:.16em;
+         text-transform:uppercase; color:var(--mute) }
+  .desc{ font-size:13px; line-height:1.6; color:var(--mute); text-align:center }
+  .desc b{ color:var(--ink); font-weight:500 }
+  .big{ border-top:1px solid var(--rule); padding-top:44px;
+        display:flex; flex-direction:column; align-items:center; gap:16px }
+  .big video{ width:460px; height:460px }
+</style>
+</head>
+<body>
+
+<h1>Earth orb — two routes</h1>
+
+<div class="row">
+  <figure>
+    <video src="../assets/3d/world-earth.webm" autoplay loop muted playsinline></video>
+    <div class="name">Rendered — Tripo GLB</div>
+    <div class="meta">687 KB · 9s · seamless</div>
+    <p class="desc">Turns <b>exactly 360°</b> across 180 frames, so the last frame
+    runs into the first with nothing to hide. Lit by the same key, fill and
+    environment as your other five orbs.</p>
+  </figure>
+
+  <figure>
+    <video src="../assets/3d/world-earth-video.webm" autoplay loop muted playsinline></video>
+    <div class="name">From your AI clip</div>
+    <div class="meta">103 KB · 9s · crossfaded</div>
+    <p class="desc">Turns only <b>~50°</b>, so the last second has to dissolve back
+    under the first to avoid a snap. Carries its own lighting and atmosphere.</p>
+  </figure>
+</div>
+
+<div class="big">
+  <video src="../assets/3d/world-earth.webm" autoplay loop muted playsinline></video>
+  <div class="meta">rendered version, enlarged</div>
+</div>
+
+<script>
+// The autoplay attribute alone is not enough: Chrome silently declines it often
+// enough that the video just sits at frame 0 looking like a still. Ask directly,
+// and if the policy still refuses, start on the first interaction instead.
+const vids = [...document.querySelectorAll('video')];
+const start = () => vids.forEach(v => v.play().catch(() => {}));
+start();
+addEventListener('pointerdown', start, { once: true });
+addEventListener('keydown', start, { once: true });
+</script>
+
+</body>
+</html>

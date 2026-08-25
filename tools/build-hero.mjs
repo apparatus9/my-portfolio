@@ -18,31 +18,41 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // order matters: this is the slot order Dirt uses around the ring
+// A world is [name, label] plus an optional 'video' flag. Video-backed worlds
+// are NOT inlined: a base64 webm would add most of a megabyte to the page for
+// one orb, so they are referenced as files and the page stops being
+// self-contained.
 const WORLDS = [
   ['world-acid',           'Acid grid world'],
   ['world-bloom',          'Glowing bloom world'],
   ['world-liquid',         'Marbled liquid world'],
   ['world-plant',          'Chrome plant world'],
   ['world-chrome-cluster', 'Chrome cluster world'],
+  ['world-earth',          'Rotating Earth', 'video'],
 ];
 
-const SLOTS = 10;   // five worlds, each appearing twice, 36 degrees apart
+const SLOTS = 10;   // 36 degrees apart; with six worlds, Earth lands once and the rest twice
 
 let html = readFileSync(join(root, 'tools/hero.template.html'), 'utf8');
 
-const css = WORLDS.map(([name], i) => {
+const css = WORLDS.map(([name, , kind], i) => {
+  if (kind === 'video') return null;               // nothing to inline
   const b64 = readFileSync(join(root, `assets/3d/${name}.webp`)).toString('base64');
   return `  .w${i}{ background-image:url(data:image/webp;base64,${b64}) }`;
-}).join('\n');
+}).filter(Boolean).join('\n');
 
 // The bob's duration and delay are set at runtime, not here: they follow
 // the entry delay, so the page owns them.
 const slots = Array.from({ length: SLOTS }, (_, i) => {
   const k = i % WORLDS.length;
+  const [name, label, kind] = WORLDS[k];
+  const face = kind === 'video'
+    ? `<video class="orbimg orbvid" src="assets/3d/${name}.webm" ` +
+      `poster="assets/3d/${name}.webp" autoplay loop muted playsinline preload="auto" ` +
+      `disablepictureinpicture aria-label="${label}"></video>`
+    : `<div class="orbimg w${k}" role="img" aria-label="${label}"></div>`;
   return `    <div class="slot" style="--i:${i}">` +
-         `<div class="slot__f">` +
-         `<div class="orbimg w${k}" role="img" aria-label="${WORLDS[k][1]}"></div>` +
-         `</div></div>`;
+         `<div class="slot__f">` + face + `</div></div>`;
 }).join('\n');
 
 html = html.replace('{{IMGCSS}}', css).replace('{{SLOTS}}', slots);

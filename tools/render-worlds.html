@@ -24,11 +24,37 @@
 
 <script type="module">
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ?only=world-earth renders a single world instead of the whole set
+const ONLY = new URLSearchParams(location.search).get('only');
+
+// Drop a loaded GLB into the same frame the hand-built worlds use: centred on
+// the origin, sized so its bounding sphere just fills the circular cut. Models
+// arrive at arbitrary scale and offset, so neither can be assumed.
+async function loadGLB(url, target = 1.13){
+  const gltf = await new GLTFLoader().loadAsync(url);
+  const root = gltf.scene;
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const mid  = box.getCenter(new THREE.Vector3());
+  root.position.sub(mid);
+  const g = new THREE.Group();
+  g.add(root);
+  g.scale.setScalar(target / (Math.max(size.x, size.y, size.z) / 2));
+  return g;
+}
 
 const log = m => document.getElementById('log').textContent += '\n' + m;
-const SIZE = 1024;
+const P = new URLSearchParams(location.search);
+const SIZE = +(P.get('size') || 1024);
+// A turntable: rotate exactly one revolution across FRAMES frames and frame 0
+// is pixel-identical to frame FRAMES. The loop is seamless by construction —
+// no dissolve, no stitching, nothing to hide.
+const FRAMES = +(P.get('frames') || 1);
 
-const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true, alpha:true });
+renderer.setClearAlpha(0);
 renderer.setSize(SIZE,SIZE); renderer.setPixelRatio(1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -130,7 +156,117 @@ function liquify(cv, amp, freq){
   x.putImageData(dst,0,0);
 }
 
-// ---------- the five worlds ----------
+// ---------- GPU noise, for surfaces that have to churn ----------
+// The same closed-path trick the 2D worlds use, moved onto the GPU: the sample
+// point walks a circle in noise space, so phase 1 lands exactly on phase 0 and
+// the loop closes. Doing this per pixel in JS was the thing that made the
+// earlier rigs crawl; in a shader it is free.
+const NOISE_GLSL = `
+float hash31(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123); }
+float vnoise(vec3 p){
+  vec3 i = floor(p), f = fract(p);
+  vec3 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash31(i),                hash31(i + vec3(1,0,0)), u.x),
+                 mix(hash31(i + vec3(0,1,0)),  hash31(i + vec3(1,1,0)), u.x), u.y),
+             mix(mix(hash31(i + vec3(0,0,1)),  hash31(i + vec3(1,0,1)), u.x),
+                 mix(hash31(i + vec3(0,1,1)),  hash31(i + vec3(1,1,1)), u.x), u.y), u.z);
+}
+float fbm3(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vnoise(p); p *= 2.03; a *= 0.5; } return s; }
+`;
+
+// Plasma: domain-warped noise just above the surface, added over it. Warping
+// noise by more noise is what turns blobs into swirl.
+function plasmaMat(){
+  return new THREE.ShaderMaterial({
+    uniforms: { uPh: { value: 0 } },
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    vertexShader: `varying vec3 vPos;
+      void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: NOISE_GLSL + `
+      varying vec3 vPos;
+      uniform float uPh;
+      void main(){
+        float th = uPh * 6.2831853;
+        vec3 off = vec3(cos(th), sin(th), 0.0) * 1.7;
+        vec3 p = normalize(vPos) * 3.1 + off;
+        vec3 w = vec3(fbm3(p), fbm3(p + 11.3), fbm3(p + 27.9));
+        float n = fbm3(p + w * 1.9);
+        float hot = smoothstep(0.40, 0.80, n);
+        vec3 col = mix(vec3(0.92, 0.14, 0.01), vec3(1.0, 0.87, 0.40), hot);
+        gl_FragColor = vec4(col, hot * 0.80);
+      }`
+  });
+}
+
+// Corona: same noise on a bigger shell, but keyed to the silhouette so it only
+// burns at the limb. That rim term is what reads as flares rather than fog.
+// Corona: a flat card facing the camera, not a shell. A shell glows brightest
+// at its own silhouette, which draws a ring out at the rim with a dead gap
+// between it and the star. What a corona actually does is burn hardest just
+// off the surface and thin outwards, with tongues reaching different distances
+// at different angles — so noise drives REACH here, not brightness.
+function coronaMat(discR, orbR){
+  return new THREE.ShaderMaterial({
+    uniforms: { uPh: { value: 0 }, uDisc: { value: discR / orbR } },
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: NOISE_GLSL + `
+      varying vec2 vUv;
+      uniform float uPh;
+      uniform float uDisc;
+      void main(){
+        vec2 c = vUv * 2.0 - 1.0;
+        float r = length(c);
+        float ang = atan(c.y, c.x);
+        float th = uPh * 6.2831853;
+        vec3 off = vec3(cos(th), sin(th), 0.0) * 1.35;
+        // sample on a ring so the noise wraps seamlessly all the way around
+        vec3 p = vec3(cos(ang) * 2.3, sin(ang) * 2.3, r * 2.6) + off;
+        vec3 w = vec3(fbm3(p * 0.8), fbm3(p * 0.8 + 9.7), 0.0);
+        float n = fbm3(p + w * 1.6);
+        float reach = mix(uDisc + 0.04, 1.0, smoothstep(0.24, 0.86, n));
+        float glow = smoothstep(reach, uDisc, r);
+        glow = pow(glow, 1.5);
+        glow *= smoothstep(uDisc - 0.10, uDisc + 0.01, r);   // stay off the disc itself
+        vec3 col = mix(vec3(1.0, 0.28, 0.01), vec3(1.0, 0.88, 0.52), pow(glow, 0.55));
+        gl_FragColor = vec4(col, clamp(glow, 0.0, 1.0) * 0.9);
+      }`
+  });
+}
+// Atmosphere: the corona idea again, but a planet's air shell is thin, smooth
+// and one colour — no tongues, no noise. It hugs the limb, falls off within a
+// few percent of the radius, and burns brightest where the sun strikes, which
+// is what stops it reading as a sticker glow drawn evenly all the way round.
+function atmosphereMat(discR, orbR, lightDir){
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uDisc: { value: discR / orbR },
+      uLight: { value: new THREE.Vector2(lightDir[0], lightDir[1]).normalize() }
+    },
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uDisc;
+      uniform vec2 uLight;
+      void main(){
+        vec2 c = vUv * 2.0 - 1.0;
+        float r = length(c);
+        float halo = smoothstep(1.0, uDisc, r);
+        halo = pow(halo, 1.55);                                 // thin, but wide enough to read on a pale page
+        halo *= smoothstep(uDisc - 0.020, uDisc + 0.004, r);    // stay off the globe
+        float lit = 0.52 + 0.48 * smoothstep(-0.85, 0.90, dot(normalize(c + 1e-5), uLight));
+        vec3 col = mix(vec3(0.06, 0.30, 1.0), vec3(0.42, 0.76, 1.0), pow(halo, 0.55));
+        gl_FragColor = vec4(col, clamp(halo * lit, 0.0, 1.0));
+      }`
+  });
+}
+
+// ---------- the worlds ----------
 const WORLDS = [
   {
     name:'world-chrome-cluster', warp:22,            // W3 language
@@ -250,39 +386,159 @@ const WORLDS = [
       return g;
     }
   },
+  {
+    // Tripo GLB. warp 0 keeps the rim a true circle; the model is already a
+    // sphere, so nothing here should melt or bulge it.
+    name:'world-earth', warp:0, noShade:true,   // no gloss: white overlays read as a film on a photographic texture, and a real lit sphere does not need faking key:3.6, fill:1.15, ambient:0.55,
+    bg:()=>null,                       // no sky: the halo has to fade into the page
+    env:()=>envFrom('#20304A',[['#FFFFFF',8,6,7,18,18],['#BFDBFF',-9,-2,5,14,14]]),
+    async buildAsync(){
+      const surface = await loadGLB('/incoming/earth-globe.glb', 0.96);   // room for the halo
+
+      // A separate, very slightly larger sphere carrying only the cloud map.
+      // Nothing about the clouds is animated — they simply turn at their own
+      // rate, and the drift against the continents falls out of that. The
+      // greyscale map drives alpha, so black is open sky and white is cloud.
+      const tex = await new THREE.TextureLoader().loadAsync('/incoming/earth-clouds.jpg');
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      const clouds = new THREE.Mesh(
+        new THREE.SphereGeometry(0.976, 128, 128),
+        new THREE.MeshStandardMaterial({
+          color: 0xFFFFFF, alphaMap: tex, transparent: true, opacity: 0.92,
+          roughness: 1, metalness: 0, depthWrite: false
+        })
+      );
+
+      // key light sits upper-left, so the limb lights from there too
+      const air = new THREE.Mesh(new THREE.PlaneGeometry(2.26, 2.26),
+                                 atmosphereMat(0.96, 1.13, [-0.62, 0.58]));
+      air.position.z = -0.01;
+
+      const g = new THREE.Group();
+      g.add(surface, clouds, air);
+      g.userData = { surface, clouds, air };
+      return g;
+    },
+
+    // One revolution for the ground, two for the weather. Both are whole turns,
+    // so the loop still closes exactly; the cost is that a full revolution of
+    // relative drift happens per loop, which is brisk weather.
+    animate(obj, ph){
+      const th = ph * Math.PI * 2;
+      obj.rotation.set(0.10, 0, 0);
+      obj.userData.air.rotation.x = -0.10;      // the card must stay square to the lens
+      obj.userData.surface.rotation.y = 0.42 + th;
+      obj.userData.clouds.rotation.y  = 0.42 + th * 2;
+    }
+  },
+  {
+    // A star is not lit, it emits. The colour map is pushed into emissive so
+    // the disc glows on its own, and the rig lights are dropped almost to
+    // nothing. The disc sits at 0.84 so the corona has room to burn out to the
+    // rim without being clipped by the circular cut.
+    name:'world-sun', warp:0, noShade:true, key:0.35, fill:0.12, ambient:0.9,
+    bg:()=>null,                       // no sky: the star floats on the page
+    env:()=>envFrom('#2B0C00',[['#FFCE7A',8,6,7,18,18]]),
+    async buildAsync(){
+      const surface = await loadGLB('/incoming/sun-globe.glb', 0.88);
+      surface.traverse(o => {
+        if (!o.isMesh || !o.material) return;
+        const m = o.material;
+        m.emissive = new THREE.Color(0xFFFFFF);
+        m.emissiveMap = m.map;
+        m.emissiveIntensity = 1.25;
+        m.toneMapped = true;
+        m.needsUpdate = true;
+      });
+      const plasma = new THREE.Mesh(new THREE.SphereGeometry(0.896, 128, 128), plasmaMat());
+      const corona = new THREE.Mesh(new THREE.PlaneGeometry(2.26, 2.26), coronaMat(0.88, 1.13));
+      corona.position.z = -0.02;         // sits behind the disc, never over it
+      const g = new THREE.Group();
+      g.add(surface, plasma, corona);
+      g.userData = { surface, plasma, corona };
+      return g;
+    },
+
+    // Surface turns once; the plasma churns the other way at twice the rate, so
+    // the shear between them reads as convection rather than a spinning decal.
+    animate(obj, ph){
+      const th = ph * Math.PI * 2;
+      obj.rotation.set(0.08, 0, 0);
+      obj.userData.corona.rotation.x = -0.08;   // cancel the tilt: the card must face the lens
+      obj.userData.surface.rotation.y = th;
+      obj.userData.plasma.rotation.y = -th * 2.0;
+      obj.userData.plasma.material.uniforms.uPh.value = ph;
+      obj.userData.corona.material.uniforms.uPh.value = ph;
+    }
+  },
 ];
 
 // ---------- render one world, then make the frame a ball ----------
 async function shoot(w){
   seed = 99;
   const scene = new THREE.Scene();
-  scene.background = w.bg();
+  const bgTex = w.bg();
+  if (bgTex) scene.background = bgTex;   // null background = the world floats on transparency
   scene.environment = w.env();
-  const key=new THREE.DirectionalLight(0xffffff,2.0); key.position.set(-3,4,5); scene.add(key);
-  const fill=new THREE.DirectionalLight(0xffffff,0.6); fill.position.set(4,-2,3); scene.add(fill);
+  const key=new THREE.DirectionalLight(0xffffff, w.key || 2.0); key.position.set(-3,4,5); scene.add(key);
+  const fill=new THREE.DirectionalLight(0xffffff, w.fill || 0.6); fill.position.set(4,-2,3); scene.add(fill);
+  if (w.ambient) scene.add(new THREE.AmbientLight(0xffffff, w.ambient));
 
-  const obj = w.build();
+  const obj = w.buildAsync ? await w.buildAsync() : w.build();
   obj.rotation.set(0.10, 0.42, 0);
   scene.add(obj);
   camera.position.set(0,0,4.4); camera.lookAt(0,0,0);
 
+  const baseY = obj.rotation.y;
+  for (let frame = 0; frame < FRAMES; frame++){
+  const ph = FRAMES > 1 ? frame / FRAMES : 0;
+  // A world with its own animate() moves its parts independently; everything
+  // else just turns on the spot.
+  if (w.animate) w.animate(obj, ph);
+  else obj.rotation.y = baseY + ph * Math.PI * 2;
   renderer.render(scene, camera);
 
   // composite: sphere shading + specular + circular cut
   const out=canvas2d(), x=out.getContext('2d');
   x.drawImage(renderer.domElement,0,0);
 
+  if (!w.noShade){
   const shade=x.createRadialGradient(SIZE*0.36,SIZE*0.30,SIZE*0.03, SIZE*0.5,SIZE*0.5,SIZE*0.60);
   shade.addColorStop(0,'rgba(255,255,255,0.16)');
   shade.addColorStop(0.48,'rgba(255,255,255,0)');
   shade.addColorStop(0.86,'rgba(0,0,0,0.18)');
   shade.addColorStop(1,'rgba(0,0,0,0.46)');
   x.fillStyle=shade; x.fillRect(0,0,SIZE,SIZE);
+  }
 
   const spec=x.createRadialGradient(SIZE*0.33,SIZE*0.25,0, SIZE*0.33,SIZE*0.25,SIZE*0.20);
   spec.addColorStop(0,'rgba(255,255,255,0.34)');
   spec.addColorStop(1,'rgba(255,255,255,0)');
   x.fillStyle=spec; x.fillRect(0,0,SIZE,SIZE);
+
+  // Glass, for worlds whose content is already lit and needs the ball read
+  // put back on top of it: a hard key hotspot, then bounce light crawling the
+  // far rim. Clipped to the circle so the crescent hugs the edge.
+  if (w.gloss){
+    x.save();
+    x.beginPath(); x.arc(SIZE/2,SIZE/2,SIZE*0.487,0,Math.PI*2); x.clip();
+
+    const hot=x.createRadialGradient(SIZE*0.34,SIZE*0.26,0, SIZE*0.34,SIZE*0.26,SIZE*0.19);
+    hot.addColorStop(0,   'rgba(255,255,255,0.42)');
+    hot.addColorStop(0.42,'rgba(255,255,255,0.11)');
+    hot.addColorStop(1,   'rgba(255,255,255,0)');
+    x.fillStyle=hot; x.fillRect(0,0,SIZE,SIZE);
+
+    const cres=x.createRadialGradient(SIZE*0.66,SIZE*0.74,SIZE*0.31, SIZE*0.64,SIZE*0.72,SIZE*0.50);
+    cres.addColorStop(0,   'rgba(255,255,255,0)');
+    cres.addColorStop(0.74,'rgba(255,255,255,0.07)');
+    cres.addColorStop(0.94,'rgba(255,255,255,0.34)');
+    cres.addColorStop(1,   'rgba(255,255,255,0)');
+    x.fillStyle=cres; x.fillRect(0,0,SIZE,SIZE);
+
+    x.restore();
+  }
 
   x.globalCompositeOperation='destination-in';
   x.fillStyle='#000';                      // must be OPAQUE — destination-in keeps by alpha
@@ -292,17 +548,25 @@ async function shoot(w){
   if(w.warp) liquify(out, w.warp, w.warpFreq || 2.6);
 
   const blob=await new Promise(r=>out.toBlob(r,'image/png'));
-  await fetch('/save?name='+w.name+'.png',{method:'POST',body:blob});
+  const dest = FRAMES > 1
+    ? 'frames/'+w.name+'/'+String(frame).padStart(4,'0')+'.png'   // 4 digits: 3 silently misorders past 999
+    : w.name+'.png';
+  await fetch('/save?name='+dest,{method:'POST',body:blob});
 
-  const fig=document.createElement('figure');
-  const img=new Image(); img.src=URL.createObjectURL(blob);
-  fig.append(img, Object.assign(document.createElement('figcaption'),{textContent:w.name}));
-  document.getElementById('sheet').append(fig);
-  log('saved '+w.name+'.png ('+Math.round(blob.size/1024)+' KB)');
+  if (frame === 0){
+    const fig=document.createElement('figure');
+    const img=new Image(); img.src=URL.createObjectURL(blob);
+    fig.append(img, Object.assign(document.createElement('figcaption'),{textContent:w.name}));
+    document.getElementById('sheet').append(fig);
+  }
+  document.title = w.name+' '+(frame+1)+'/'+FRAMES;
+  await new Promise(r=>setTimeout(r,0));
+  }
+  log('saved '+w.name+' — '+FRAMES+' frame(s)');
 }
 
 log('three r'+THREE.REVISION+' — '+WORLDS.length+' worlds @ '+SIZE+'px');
-for(const w of WORLDS) await shoot(w);
+for(const w of WORLDS) if (!ONLY || w.name === ONLY) await shoot(w);
 log('DONE');
 document.title='DONE '+WORLDS.length;
 </script>

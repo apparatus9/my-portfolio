@@ -1,0 +1,310 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>glassify — video to glass orb</title>
+<style>
+  body{margin:0;background:#F5F4F2;color:#333;font:12px monospace;padding:10px}
+  #log{white-space:pre-wrap;line-height:1.5}
+  #sheet{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  #sheet img{width:260px;height:260px;display:block;
+             background:repeating-conic-gradient(#DDD 0 25%,#FFF 0 50%) 0 0/20px 20px}
+  video{display:none}
+</style>
+</head>
+<body>
+<div id="log">booting…</div>
+<div id="sheet"></div>
+<video id="src" muted playsinline crossorigin="anonymous"></video>
+
+<script>
+// Wraps any flat video in a glass ball.
+//
+//   /tools/glassify.html?src=/incoming/clip.mp4&name=world-liquid&frames=30
+//
+// Reads the video frame by frame, bulges each frame like it is painted on the
+// inside of a sphere, cuts it to a circle, then lays studio glass on top:
+// edge falloff, a soft key highlight, and a bright crescent bouncing off the
+// lower rim. Frames are POSTed to save-server, which writes them to
+// assets/3d/frames/<name>/.
+//
+// The bulge is the part that sells it. A circle-cropped video still reads flat;
+// remapping screen radius r to asin(r) is the actual orthographic projection of
+// a textured sphere, so the middle magnifies and detail crowds toward the rim
+// exactly the way it does on real glass.
+
+const q = new URLSearchParams(location.search);
+const SRC    = q.get('src')    || '';
+const NAME   = q.get('name')   || 'orb';
+const FRAMES = +(q.get('frames') || 30);
+const SIZE   = +(q.get('size')   || 768);
+const BULGE  = +(q.get('bulge')  || 1);      // 0 = flat crop, 1 = full sphere
+const WARP   = +(q.get('warp')   || 14);     // liquid wobble on the rim, 0 = clean edge
+const AUTOFIT= q.get('autofit') !== '0';    // track the subject and fill the circle with it
+const FILL   = +(q.get('fill')   || 1);     // 1 = subject meets the rim, <1 leaves a margin
+const XFADE  = +(q.get('xfade')  || 0);     // frames of tail dissolved back into the head
+
+const log = m => document.getElementById('log').textContent += '\n' + m;
+const mk = () => { const c = document.createElement('canvas'); c.width = c.height = SIZE; return c; };
+
+// ---- deterministic noise, for the liquid rim ----
+const fr = v => v - Math.floor(v);
+const h2 = (x, y) => fr(Math.sin(x * 127.1 + y * 311.7) * 43758.5453);
+function n2(x, y){
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return (h2(xi,yi)*(1-u) + h2(xi+1,yi)*u)*(1-v) + (h2(xi,yi+1)*(1-u) + h2(xi+1,yi+1)*u)*v;
+}
+function fbm2(x, y, o = 4){ let a=.5, f=1, s=0; for (let i=0;i<o;i++){ s+=a*n2(x*f,y*f); f*=2.07; a*=.5 } return s; }
+
+// ---- bulge a flat frame onto a sphere ----
+// asin() per pixel is far too slow at 768x768, and the mapping only depends on
+// radius, so it collapses to a single 1D table looked up by r.
+const LUTN = 4096;
+const KLUT = (() => {
+  const t = new Float32Array(LUTN + 1);
+  for (let i = 0; i <= LUTN; i++){
+    const r = i / LUTN;
+    const rs = i === 0 ? 1 : (Math.asin(Math.min(r, 1)) / (Math.PI / 2)) / r;
+    t[i] = 1 + (rs - 1) * BULGE;
+  }
+  return t;
+})();
+
+function spherize(srcCv){
+  const out = mk();
+  const s = srcCv.getContext('2d').getImageData(0,0,SIZE,SIZE);
+  const d = out.getContext('2d').createImageData(SIZE,SIZE);
+  const S = s.data, D = d.data, half = SIZE / 2;
+
+  for (let y = 0; y < SIZE; y++){
+    const ny = (y - half) / half;
+    const ny2 = ny * ny;
+    for (let x = 0; x < SIZE; x++){
+      const nx = (x - half) / half;
+      const r = Math.sqrt(nx * nx + ny2);
+      const di = (y * SIZE + x) << 2;
+      if (r > 1){ D[di+3] = 0; continue; }
+
+      const k = KLUT[(r * LUTN) | 0];
+      let sx = (half + nx * k * half) | 0;
+      let sy = (half + ny * k * half) | 0;
+      sx = sx < 0 ? 0 : sx >= SIZE ? SIZE - 1 : sx;
+      sy = sy < 0 ? 0 : sy >= SIZE ? SIZE - 1 : sy;
+
+      const si = (sy * SIZE + sx) << 2;
+      D[di] = S[si]; D[di+1] = S[si+1]; D[di+2] = S[si+2]; D[di+3] = 255;
+    }
+  }
+  out.getContext('2d').putImageData(d, 0, 0);
+  return out;
+}
+
+// ---- melt the rim so the edge reads as liquid, not a cookie cutter ----
+// The displacement is smooth, so it is evaluated on a coarse grid and bilinearly
+// interpolated — 96x96 noise samples instead of 768x768, for the same picture.
+const G = 96;
+function liquify(cv, amp, ph){
+  const x = cv.getContext('2d');
+  const s = x.getImageData(0,0,SIZE,SIZE), d = x.createImageData(SIZE,SIZE);
+  const S = s.data, D = d.data;
+  const ox = Math.cos(ph * Math.PI * 2) * 1.4, oy = Math.sin(ph * Math.PI * 2) * 1.4;
+
+  const gx = new Float32Array((G + 1) * (G + 1));
+  const gy = new Float32Array((G + 1) * (G + 1));
+  for (let j = 0; j <= G; j++){
+    const v = j / G * 2.6;
+    for (let i = 0; i <= G; i++){
+      const u = i / G * 2.6, o = j * (G + 1) + i;
+      gx[o] = (fbm2(u + ox, v + oy) - 0.5) * 2 * amp;
+      gy[o] = (fbm2(u + ox + 31.7, v + oy + 11.3) - 0.5) * 2 * amp;
+    }
+  }
+
+  const step = G / SIZE;
+  for (let y = 0; y < SIZE; y++){
+    const fy = y * step, j0 = fy | 0, ty = fy - j0, j1 = j0 + 1;
+    for (let px = 0; px < SIZE; px++){
+      const fx = px * step, i0 = fx | 0, tx = fx - i0, i1 = i0 + 1;
+      const a = j0 * (G + 1) + i0, b = j1 * (G + 1) + i0;
+      const dx = (gx[a] * (1 - tx) + gx[a + 1] * tx) * (1 - ty)
+               + (gx[b] * (1 - tx) + gx[b + 1] * tx) * ty;
+      const dy = (gy[a] * (1 - tx) + gy[a + 1] * tx) * (1 - ty)
+               + (gy[b] * (1 - tx) + gy[b + 1] * tx) * ty;
+      let sx = (px + dx) | 0, sy = (y + dy) | 0;
+      sx = sx < 0 ? 0 : sx >= SIZE ? SIZE - 1 : sx;
+      sy = sy < 0 ? 0 : sy >= SIZE ? SIZE - 1 : sy;
+      const si = (sy * SIZE + sx) << 2, di = (y * SIZE + px) << 2;
+      D[di] = S[si]; D[di+1] = S[si+1]; D[di+2] = S[si+2]; D[di+3] = S[si+3];
+    }
+  }
+  x.putImageData(d, 0, 0);
+}
+
+// ---- the glass pass ----
+function glass(cv){
+  const x = cv.getContext('2d');
+
+  // volume: light from upper left, falling off to a dark lower-right limb
+  const shade = x.createRadialGradient(SIZE*0.36, SIZE*0.30, SIZE*0.03,
+                                       SIZE*0.50, SIZE*0.50, SIZE*0.60);
+  shade.addColorStop(0,    'rgba(255,255,255,0.18)');
+  shade.addColorStop(0.48, 'rgba(255,255,255,0)');
+  shade.addColorStop(0.86, 'rgba(0,0,0,0.20)');
+  shade.addColorStop(1,    'rgba(0,0,0,0.48)');
+  x.fillStyle = shade; x.fillRect(0,0,SIZE,SIZE);
+
+  // the key highlight — soft, offset, never centred
+  const spec = x.createRadialGradient(SIZE*0.33, SIZE*0.25, 0,
+                                      SIZE*0.33, SIZE*0.25, SIZE*0.21);
+  spec.addColorStop(0,   'rgba(255,255,255,0.38)');
+  spec.addColorStop(0.5, 'rgba(255,255,255,0.10)');
+  spec.addColorStop(1,   'rgba(255,255,255,0)');
+  x.fillStyle = spec; x.fillRect(0,0,SIZE,SIZE);
+
+  // bounce light crawling the lower-right rim: the tell that it is glass
+  x.save();
+  x.beginPath(); x.arc(SIZE/2, SIZE/2, SIZE*0.487, 0, Math.PI*2); x.clip();
+  const cres = x.createRadialGradient(SIZE*0.68, SIZE*0.76, SIZE*0.30,
+                                      SIZE*0.66, SIZE*0.74, SIZE*0.50);
+  cres.addColorStop(0,    'rgba(255,255,255,0)');
+  cres.addColorStop(0.72, 'rgba(255,255,255,0.06)');
+  cres.addColorStop(0.93, 'rgba(255,255,255,0.30)');
+  cres.addColorStop(1,    'rgba(255,255,255,0)');
+  x.fillStyle = cres; x.fillRect(0,0,SIZE,SIZE);
+  x.restore();
+
+  // circular cut LAST, so no highlight leaks past the edge
+  x.globalCompositeOperation = 'destination-in';
+  x.fillStyle = '#000';                    // must be opaque: destination-in keeps by alpha
+  x.beginPath(); x.arc(SIZE/2, SIZE/2, SIZE*0.487, 0, Math.PI*2); x.fill();
+  x.globalCompositeOperation = 'source-over';
+}
+
+// ---- find the subject inside the frame ----
+// A source clip often floats its subject on a dark background, off centre, and
+// drifts or pushes in as it plays. A fixed crop leaves a crescent of that
+// background inside the rim. So measure the bright region every frame instead.
+// Counting per row and per column and demanding a minimum run rejects stars,
+// which are single bright pixels, without rejecting the subject.
+const Q = 96;                       // detection resolution
+const qc = document.createElement('canvas'); qc.width = qc.height = Q;
+function fitSubject(cv){
+  // Downsample first. Thresholding at full resolution locks onto stars and the
+  // Milky Way band as readily as onto the planet; box-filtering to 96x96 averages
+  // single bright pixels back into the black while a large bright disc survives.
+  const c = qc.getContext('2d');
+  c.clearRect(0, 0, Q, Q);
+  c.drawImage(cv, 0, 0, Q, Q);
+  const d = c.getImageData(0, 0, Q, Q).data;
+
+  const T = 64;
+  let x0 = Q, x1 = -1, y0 = Q, y1 = -1;
+  for (let y = 0; y < Q; y++){
+    for (let x = 0; x < Q; x++){
+      const i = (y * Q + x) << 2;
+      if ((d[i] * 299 + d[i+1] * 587 + d[i+2] * 114) / 1000 > T){
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return null;
+  const k = SIZE / Q;
+  const r = Math.max(x1 - x0, y1 - y0) / 2 * k;
+  return r < SIZE * 0.05 ? null : { cx: (x0 + x1) / 2 * k, cy: (y0 + y1) / 2 * k, r };
+}
+
+const seek = (v, t) => new Promise(res => {
+  const done = () => { v.removeEventListener('seeked', done); res(); };
+  v.addEventListener('seeked', done);
+  v.currentTime = t;
+});
+
+(async () => {
+  if (!SRC){ log('no ?src= given'); return; }
+  const v = document.getElementById('src');
+  v.src = SRC;
+  await new Promise((res, rej) => {
+    v.addEventListener('loadedmetadata', res, { once: true });
+    v.addEventListener('error', () => rej(new Error('could not load ' + SRC)), { once: true });
+  }).catch(e => { log(e.message); throw e; });
+
+  const dur = v.duration;
+  log(`${SRC} — ${v.videoWidth}x${v.videoHeight}, ${dur.toFixed(2)}s -> ${FRAMES} frames @ ${SIZE}px`);
+
+  const flat = mk(), fx = flat.getContext('2d');
+
+  // one finished orb for source frame `idx`
+  async function renderAt(idx){
+    await seek(v, (idx / FRAMES) * dur);
+
+    // cover-fit the frame into a square, centre-cropped
+    const s = Math.max(SIZE / v.videoWidth, SIZE / v.videoHeight);
+    const w = v.videoWidth * s, h = v.videoHeight * s;
+    fx.clearRect(0, 0, SIZE, SIZE);
+    fx.drawImage(v, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+
+    // re-frame so the subject exactly fills the circle, tracking it per frame
+    if (AUTOFIT){
+      const hit = fitSubject(flat);
+      if (hit){
+        const k = (SIZE * 0.487 * FILL) / hit.r;
+        const tmp = mk(), tx = tmp.getContext('2d');
+        tx.translate(SIZE / 2, SIZE / 2);
+        tx.scale(k, k);
+        tx.translate(-hit.cx, -hit.cy);
+        tx.drawImage(flat, 0, 0);
+        fx.clearRect(0, 0, SIZE, SIZE);
+        fx.drawImage(tmp, 0, 0);
+      }
+    }
+
+    const orb = spherize(flat);
+    glass(orb);
+    if (WARP) liquify(orb, WARP, idx / FRAMES);
+    return orb;
+  }
+
+  // A clip that does not end where it began snaps on loop. Drop the last XFADE
+  // frames from the output and dissolve them back under the first XFADE instead,
+  // so the last frame runs straight into the first.
+  //
+  // Draw the head at full alpha FIRST, then the tail over it at (1 - a). Doing
+  // it the other way round leaves the blended band semi-transparent, because two
+  // partially-opaque draws never sum back to 1.
+  const L = XFADE > 0 ? FRAMES - XFADE : FRAMES;
+  if (XFADE > 0) log(`crossfading ${XFADE} frames — output is ${L} frames`);
+
+  for (let f = 0; f < L; f++){
+    let orb = await renderAt(f);
+
+    if (f < XFADE){
+      const head = orb;
+      const tail = await renderAt(f + L);
+      const a = f / XFADE;                    // 0 at the seam, 1 where the blend ends
+      const c = mk(), g = c.getContext('2d');
+      g.drawImage(head, 0, 0);
+      g.globalAlpha = 1 - a;
+      g.drawImage(tail, 0, 0);
+      g.globalAlpha = 1;
+      orb = c;
+    }
+
+    const blob = await new Promise(r => orb.toBlob(r, 'image/png'));
+    await fetch('/save?name=frames/' + NAME + '/' + String(f).padStart(3, '0') + '.png',
+                { method: 'POST', body: blob });
+
+    if (f === 0){
+      const img = new Image(); img.src = URL.createObjectURL(blob);
+      document.getElementById('sheet').append(img);
+    }
+    document.title = NAME + ' ' + (f + 1) + '/' + L;
+  }
+
+  log('DONE — ' + L + ' frames in assets/3d/frames/' + NAME + '/');
+  document.title = 'DONE ' + NAME;
+})();
+</script>
+</body>
+</html>
