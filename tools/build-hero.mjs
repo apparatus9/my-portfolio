@@ -35,13 +35,12 @@ const css = WORLDS.map(([name], i) => {
   return `  .w${i}{ background-image:url(data:image/webp;base64,${b64}) }`;
 }).join('\n');
 
+// The bob's duration and delay are set at runtime, not here: they follow
+// the entry delay, so the page owns them.
 const slots = Array.from({ length: SLOTS }, (_, i) => {
   const k = i % WORLDS.length;
-  const dur   = (3.4 + i * 0.19).toFixed(2);
-  const delay = (i * 0.43).toFixed(2);
-  return `    <div class="slot" style="--i:${i}; --liq:url(#liq${k})">` +
-         `<div class="slot__f" style="--dur:${dur}s;--delay:-${delay}s">` +
-         `<span class="shade"></span>` +
+  return `    <div class="slot" style="--i:${i}">` +
+         `<div class="slot__f">` +
          `<div class="orbimg w${k}" role="img" aria-label="${WORLDS[k][1]}"></div>` +
          `</div></div>`;
 }).join('\n');

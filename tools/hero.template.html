@@ -5,21 +5,16 @@
 
 <style>
   :root{
-    --paper:  #F5F4F2;
-    --ink:    #0B0B0B;
-    --pill:   #EAE8E5;
-    --pill-in:#4A4844;
-    --shadow: rgba(30,26,22,.22);
+    /* Pure white, sampled off dirtverse's live hero rather than read out of
+       their stylesheet — the #f2f2ef token in there never paints the page.
+       Like theirs, this page stays in one light world and carries no dark
+       theme: the orbs are lit for a bright room. */
+    --paper:  #FFFFFF;
+    --ink:    #0A0A0A;
+    --pill:   #F0F0F0;
+    --pill-in:#48484A;
     /* the carousel, in one place */
     --r: 1150px;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --paper:#0C0C0D; --ink:#F2F1EE; --pill:#1C1C1E; --pill-in:#A6A29C; --shadow:rgba(0,0,0,.62);
-    }
-  }
-  :root[data-theme="dark"]{
-    --paper:#0C0C0D; --ink:#F2F1EE; --pill:#1C1C1E; --pill-in:#A6A29C; --shadow:rgba(0,0,0,.62);
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
@@ -41,7 +36,7 @@
   .nav a:hover{ color:var(--ink) }
   .contact{ background:var(--ink); color:var(--paper) }
   .brand{ font-weight:900; font-size:19px; letter-spacing:-.05em }
-  .nav a:focus-visible,.contact:focus-visible,.flow:focus-visible,.scene:focus-visible{
+  .nav a:focus-visible,.contact:focus-visible,.scene:focus-visible{
     outline:2px solid var(--ink); outline-offset:3px }
 
   /* ---------- the carousel ---------- */
@@ -80,9 +75,6 @@
   .slot__f{ position:relative; animation:float var(--dur) var(--delay) ease-in-out infinite }
   @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
 
-  .shade{ position:absolute; left:50%; bottom:-7%; transform:translateX(-50%);
-          width:84%; height:20%; border-radius:50%; pointer-events:none;
-          background:radial-gradient(closest-side, var(--shadow), transparent 72%) }
 
   .orbimg{
     width:520px; height:520px;
@@ -92,9 +84,6 @@
     backface-visibility:hidden;        /* far half of the ring drops out cleanly */
   }
 {{IMGCSS}}
-  body.flow .orbimg{ filter:var(--liq) }
-
-
 
   .foot{
     position:fixed; left:0; right:0; bottom:18px; z-index:10;
@@ -102,13 +91,6 @@
     font-size:11px; font-weight:500; letter-spacing:.24em; text-transform:uppercase;
     color:var(--pill-in); pointer-events:none;
   }
-  .flow{
-    pointer-events:auto; cursor:pointer; font:inherit; letter-spacing:.14em;
-    background:var(--pill); color:var(--pill-in); border:0;
-    padding:7px 15px; border-radius:999px;
-  }
-  .flow[aria-pressed="true"]{ background:var(--ink); color:var(--paper) }
-
   @media (max-width:820px){
     :root{ --r:760px }
     .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
@@ -117,54 +99,9 @@
   @media (prefers-reduced-motion: reduce){
     .slot__f{ animation:none }
     .slot{ transition:none }
-    body.flow .orbimg{ filter:none }
   }
 </style>
 
-<svg class="defs" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0"><defs>
-  <filter id="liq0" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.0055 0.0090" numOctaves="2" seed="7" result="n">
-      <animate attributeName="baseFrequency" dur="17s" repeatCount="indefinite"
-               values="0.0055 0.0090;0.0092 0.0052;0.0055 0.0090"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" xChannelSelector="R" yChannelSelector="G" scale="24"/>
-  </filter>
-  <filter id="liq1" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.0070 0.0060" numOctaves="2" seed="21" result="n">
-      <animate attributeName="baseFrequency" dur="21s" repeatCount="indefinite"
-               values="0.0070 0.0060;0.0048 0.0098;0.0070 0.0060"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" xChannelSelector="R" yChannelSelector="G" scale="19"/>
-  </filter>
-  <filter id="liq2" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.0090 0.0075" numOctaves="2" seed="43" result="n">
-      <animate attributeName="baseFrequency" dur="15s" repeatCount="indefinite"
-               values="0.0090 0.0075;0.0060 0.0110;0.0090 0.0075"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" xChannelSelector="R" yChannelSelector="G" scale="16"/>
-  </filter>
-  <filter id="liq3" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.0065 0.0105" numOctaves="2" seed="66" result="n">
-      <animate attributeName="baseFrequency" dur="19s" repeatCount="indefinite"
-               values="0.0065 0.0105;0.0105 0.0065;0.0065 0.0105"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" xChannelSelector="R" yChannelSelector="G" scale="14"/>
-  </filter>
-  <filter id="liq4" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.0100 0.0085" numOctaves="2" seed="88" result="n">
-      <animate attributeName="baseFrequency" dur="14s" repeatCount="indefinite"
-               values="0.0100 0.0085;0.0070 0.0120;0.0100 0.0085"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" xChannelSelector="R" yChannelSelector="G" scale="12"/>
-  </filter>
-  <filter id="liq5" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.0080 0.0095" numOctaves="2" seed="105" result="n">
-      <animate attributeName="baseFrequency" dur="23s" repeatCount="indefinite"
-               values="0.0080 0.0095;0.0115 0.0062;0.0080 0.0095"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" xChannelSelector="R" yChannelSelector="G" scale="10"/>
-  </filter>
-</defs></svg>
 
 <header class="bar">
   <nav class="nav">
@@ -185,28 +122,15 @@
 
 <div class="foot">
   <span>Drag to slide</span>
-  <button class="flow" id="flow" type="button" aria-pressed="false">Flow: off</button>
 </div>
 
 <script>
 (() => {
   const scene = document.getElementById('scene');
-  const flow  = document.getElementById('flow');
   const slots = [...document.querySelectorAll('.slot')];
   const N     = slots.length;
 
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const setFlow = on => {
-    document.body.classList.toggle('flow', on);
-    flow.setAttribute('aria-pressed', String(on));
-    flow.textContent = 'Flow: ' + (on ? 'on' : 'off');
-    try { localStorage.setItem('flow', on ? '1' : '0'); } catch (e) {}
-  };
-  let initial = false;
-  try { initial = localStorage.getItem('flow') === '1'; } catch (e) {}
-  setFlow(initial);
-  flow.addEventListener('click', () => setFlow(!document.body.classList.contains('flow')));
 
   const ring = document.getElementById('ring');
   const STEP = 36;
