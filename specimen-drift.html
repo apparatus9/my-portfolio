@@ -13,8 +13,9 @@
     --ink:    #0A0A0A;
     --pill:   #F0F0F0;
     --pill-in:#48484A;
-    /* the carousel, in one place */
-    --r: 1150px;
+    /* px between neighbouring orbs. Was a ring radius; the carousel is flat
+       now, so it is simply spacing. */
+    --r: 360px;
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
@@ -42,15 +43,6 @@
   /* ---------- the carousel ---------- */
   .scene{
     position:fixed; inset:0;
-    /* Perspective and --r move TOGETHER, and --r must stay the larger of the
-       two. Slots ride a circle of radius --r centred on this plane, so the near
-       half of the ring reaches z = +--r, toward the viewer. While --r exceeds
-       the perspective distance that half sits past the camera and is never
-       drawn. Drop --r below it on its own -- 550 against 850 -- and those slots
-       land in front of the lens and scale up to 2.8x, filling the screen with
-       one orb. Scaling both by the same factor tightens the spacing and leaves
-       the orbs the size they were. */
-    perspective:850px; perspective-origin:50% 47%;
     touch-action:none; user-select:none; -webkit-user-select:none;
     cursor:grab; overflow:hidden;
   }
@@ -59,35 +51,24 @@
   /* cursor parallax gets its own layer so it never fights the drag */
   .tilt{
     position:absolute; inset:0;
-    transform-style:preserve-3d;
-    transform:rotateX(0deg) rotateY(0deg);
+    transform:translate3d(0,0,0);
     will-change:transform;
   }
   .ring{
     position:absolute; left:50%; top:47%; width:0; height:0;
     /* orbs are background-image divs, immune to any img reset */
-    transform-style:preserve-3d;
-    transform:rotateY(0deg);   /* JS writes transform directly; a custom property forces a style recalc each frame */
     will-change:transform;
   }
 
   /* each slot: swung to its angle, then pushed out to the rim */
   .slot{
     position:absolute; left:0; top:0;
-    transform-style:preserve-3d;
-    transform-origin:50% 50% var(--r);
-    transform:translateZ(calc(-1 * var(--r))) rotateY(calc(var(--i) * var(--step) * -1));
+    will-change:transform;   /* JS writes translate3d + scale every frame */
     opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
   }
   .slot.in{ opacity:1 }
-  /* The face is billboarded: JS writes a rotateY here each frame that cancels
-     the slot's share of the ring's rotation, so an orb never turns away from
-     the lens. A sphere photographed from any angle is still a circle, and a
-     flat card that foreshortens as it swings is exactly how you can tell the
-     orb is a picture. The float moved down to .orbimg because a running CSS
-     animation outranks an inline style -- an animated transform here would
-     simply overwrite what JS writes. */
-  .slot__f{ position:relative; will-change:transform }
+  /* carries --dur and --delay for the float on .orbimg below */
+  .slot__f{ position:relative }
   @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
 
 
@@ -112,7 +93,7 @@
     color:var(--pill-in); pointer-events:none;
   }
   @media (max-width:820px){
-    :root{ --r:760px }
+    :root{ --r:250px }
 
     .orbimg{ width:340px; height:340px; margin:-170px 0 0 -170px }
   }
@@ -256,16 +237,8 @@
 
   // mismatched periods, not just staggered delays: the orbs drift out of phase
   // and never resync, which is the whole trick behind the organic feel
-  // NEAR_CUT is in degrees from dead ahead: the angle past which a slot crosses
-  // the camera plane and its scale runs away. OFF_PAD is the extra margin, in
-  // pixels, an orb must clear the window edge by before it is dropped -- it is
-  // hidden only when fully outside, so nothing is ever seen to vanish.
-  const NEAR_CUT = 96, OFF_PAD = 40;
-
   const bill = slots.map(s => s.querySelector('.slot__f'));
-  const billDrawn = new Array(N).fill(null);
-  const billShown = new Array(N).fill(null);
-  const billRect  = new Array(N).fill(null);
+  const drawn = new Array(N).fill(null);   // last transform written per slot
 
   bill.forEach((f, i) => {
     f.style.setProperty('--dur',   (BOB_BASE + i * BOB_STAGGER).toFixed(2) + 's');
@@ -335,7 +308,7 @@
     e.preventDefault();
   });
 
-  let ringDrawn = null, tiltDrawn = null, originDrawn = null;
+  let tiltDrawn = null;
   let prev = performance.now();
 
   (function frame(now){
@@ -347,75 +320,26 @@
     const t = 'rotateX(' + tiltX.v.toFixed(3) + 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg)';
     if (t !== tiltDrawn){ tiltEl.style.transform = t; tiltDrawn = t; }
 
-    const r = 'rotateY(' + spin.v.toFixed(3) + 'deg)';
-    if (r !== ringDrawn){ ring.style.transform = r; ringDrawn = r; }
-
-    // Billboard every face back to square with the lens.
+    // One transform per slot: slide it sideways, and shrink it with distance.
     //
-    // A slot's net Y rotation is the ring's spin plus its own -i*STEP. Left
-    // alone the orb turns with it, so it squashes as it swings and vanishes
-    // edge-on at 90deg -- the tell that an orb is a flat picture rather than a
-    // sphere. Cancelling that angle keeps every face front-on while its
-    // POSITION still travels the circle, so the depth still reads.
-    //
-    // The half of the ring nearest the viewer has to go: billboarding defeats
-    // backface-visibility (the face never turns away any more), and those slots
-    // would sweep past the camera plane and blow up.
-    //
-    // It FADES rather than switching off. A hard cut pops, and it pops in plain
-    // sight -- the cut angle lands about 820px from centre, which is off-screen
-    // on a 1500px window but well inside a wide one, so the orb blinks out
-    // mid-air. The ramp runs over the last 16 degrees of the arc, smoothstepped
-    // so it eases at both ends instead of starting and stopping abruptly.
-    // Read every face's position first, then write. Reading after a write in
-    // the same frame forces a synchronous layout per slot; this way the reads
-    // use last frame's transforms, which is one frame stale and invisible.
-    for (let i = 0; i < N; i++) billRect[i] = bill[i].getBoundingClientRect();
-
-    const half = innerWidth / 2;
+    // No ring, no perspective, no rotation. Nothing here can foreshorten, cross
+    // the camera plane, or turn its back, so there is nothing to billboard and
+    // nothing to cull -- an orb is a circle because it is never rotated, and it
+    // leaves by moving off the edge like anything else on a page. Every bug in
+    // this carousel came from the 3D version of this line.
+    const gap = rad.v / STEP;                 // px of travel per degree of spin
     for (let i = 0; i < N; i++){
-      let a = spin.v - i * STEP;
-      a = ((a + 180) % 360 + 360) % 360 - 180;       // normalise to -180..180
-
-      // Nothing fades. An orb is dropped only once it is COMPLETELY outside the
-      // window, so what the eye sees is an orb sliding off the edge -- which is
-      // what an orb leaving is supposed to look like.
-      //
-      // Three goes at this were spent tuning a fade, and a fade is itself a
-      // disappearance you can watch: dimming an orb that is still on screen
-      // reads as it winking out, however smooth the curve. There is no need for
-      // one. Measured, a slot is already a full viewport-half past the edge by
-      // about 66deg, while the guard below does not bite until 96, so an orb
-      // has always left the frame long before anything has to hide it.
-      const r = billRect[i];
-      const outside = r.width
-        ? Math.abs(r.x + r.width / 2 - half) - r.width / 2 > half + OFF_PAD
-        : false;
-
-      // The guard, and only the guard: past this a slot crosses the camera
-      // plane and its scale runs away (measured at 4700px and beyond). By then
-      // it is far outside the window, so this never fires on anything visible.
-      const gone = outside || Math.abs(a) > NEAR_CUT;
-
-      if (gone !== billShown[i]){
-        bill[i].style.visibility = gone ? 'hidden' : '';
-        billShown[i] = gone;
-      }
-      if (gone) continue;
-
-      const b = 'rotateY(' + (-a).toFixed(2) + 'deg)';
-      if (b !== billDrawn[i]){ bill[i].style.transform = b; billDrawn[i] = b; }
-    }
-
-    // the slots only need rewriting while the radius is still in motion
-    const origin = '50% 50% ' + rad.v.toFixed(1) + 'px';
-    if (origin !== originDrawn){
-      const z = 'translateZ(' + (-rad.v).toFixed(1) + 'px) ';
-      for (let i = 0; i < N; i++){
-        slots[i].style.transformOrigin = origin;
-        slots[i].style.transform = z + 'rotateY(' + (-i * STEP) + 'deg)';
-      }
-      originDrawn = origin;
+      let d = spin.v - i * STEP;
+      d = ((d + 180) % 360 + 360) % 360 - 180;    // nearest wrap, in degrees
+      const x = d * gap;
+      // Depth is faked by size alone. The curve is a hyperbola rather than a
+      // ramp so it never flattens: each orb further out keeps getting smaller,
+      // which is what perspective does and what stops the row reading as a
+      // strip of stickers. Tuned so a neighbour lands near 0.43 of the centre
+      // orb, the ratio measured off the reference site.
+      const sc = 1 / (1 + 1.35 * Math.pow(Math.abs(x) / rad.v, 1.1));
+      const tr = 'translate3d(' + x.toFixed(1) + 'px,0,0) scale(' + sc.toFixed(4) + ')';
+      if (tr !== drawn[i]){ slots[i].style.transform = tr; drawn[i] = tr; }
     }
 
     requestAnimationFrame(frame);
