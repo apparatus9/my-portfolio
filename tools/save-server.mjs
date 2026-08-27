@@ -61,7 +61,45 @@ createServer(async (req, res) => {
   try {
     const rel = safe(decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     const body = await readFile(join(root, rel));
-    res.writeHead(200, { 'content-type': TYPES[extname(rel)] || 'application/octet-stream' });
+    const type = TYPES[extname(rel)] || 'application/octet-stream';
+
+    // Byte ranges matter here, they are not a nicety. Ending the response
+    // without a content-length makes node fall back to chunked encoding, and
+    // Chrome will not initialise a <video> from a chunked body of unknown
+    // length: the element sits at readyState 0 forever and the page quietly
+    // shows the poster instead. Every video orb looked like a still until this
+    // served ranges.
+    const range = req.headers.range;
+    const m = range && /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+    if (m) {
+      const start = m[1] ? Number(m[1]) : 0;
+      const end = m[2] ? Math.min(Number(m[2]), body.length - 1) : body.length - 1;
+      if (start > end || start >= body.length) {
+        res.writeHead(416, { 'content-range': 'bytes */' + body.length });
+        res.end();
+        return;
+      }
+      const slice = body.subarray(start, end + 1);
+      res.writeHead(206, {
+        'content-type': type,
+        'content-length': slice.length,
+        'accept-ranges': 'bytes',
+        'content-range': 'bytes ' + start + '-' + end + '/' + body.length,
+      });
+      res.end(slice);
+      return;
+    }
+
+    res.writeHead(200, {
+      'content-type': type,
+      'content-length': body.length,
+      'accept-ranges': 'bytes',
+      // This server exists to hand back files that were just rewritten. With no
+      // cache headers the browser applies its own heuristic and happily serves
+      // a stale page after a rebuild, which looks exactly like the rebuild
+      // having done nothing.
+      'cache-control': 'no-store, must-revalidate',
+    });
     res.end(body);
   } catch {
     res.writeHead(404); res.end('not found');
