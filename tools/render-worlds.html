@@ -266,6 +266,188 @@ function atmosphereMat(discR, orbR, lightDir){
   });
 }
 
+
+// Everything above churns in place: the sample point walks a circle, so nothing
+// ever travels. A flare has to go OUTWARD and still loop. That needs noise that
+// repeats along one axis — wrap the lattice in z with period `per`, scroll by
+// exactly `per` across the loop, and the pattern arrives back where it started
+// having moved the whole way out.
+const NOISE_PERIODIC = `
+float hashp(vec3 i, float per){ i.z = mod(i.z, per); return fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453123); }
+float vnoiseP(vec3 p, float per){
+  vec3 i = floor(p), f = fract(p);
+  vec3 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hashp(i, per),               hashp(i + vec3(1,0,0), per), u.x),
+                 mix(hashp(i + vec3(0,1,0), per), hashp(i + vec3(1,1,0), per), u.x), u.y),
+             mix(mix(hashp(i + vec3(0,0,1), per), hashp(i + vec3(1,0,1), per), u.x),
+                 mix(hashp(i + vec3(0,1,1), per), hashp(i + vec3(1,1,1), per), u.x), u.y), u.z);
+}
+// period doubles with the frequency, so every octave stays periodic
+float fbmP(vec3 p, float per){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * vnoiseP(p, per); p *= 2.0; per *= 2.0; a *= 0.5; } return s; }
+float ridge(float n){ return 1.0 - abs(n * 2.0 - 1.0); }
+`;
+
+// ---------- one surface shell ----------
+// A star is not one texture, it is depth. Each shell runs its own scale, warp,
+// threshold, palette and spin, and they are added together. The limb term is
+// what stops five additive shells stacking into a white ring at the silhouette.
+function shellMat(o){
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uPh: { value: 0 }, uScale: { value: o.scale }, uWarp: { value: o.warp },
+      uLo: { value: o.lo }, uHi: { value: o.hi }, uAmp: { value: o.amp },
+      uOrbit: { value: o.orbit }, uRidge: { value: o.ridge ? 1.0 : 0.0 },
+      uColA: { value: new THREE.Color(o.colA) }, uColB: { value: new THREE.Color(o.colB) }
+    },
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    vertexShader: `varying vec3 vPos; varying vec3 vNrm;
+      void main(){ vPos = position; vNrm = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: NOISE_GLSL + NOISE_PERIODIC + `
+      varying vec3 vPos; varying vec3 vNrm;
+      uniform float uPh, uScale, uWarp, uLo, uHi, uAmp, uOrbit, uRidge;
+      uniform vec3 uColA, uColB;
+      void main(){
+        float th = uPh * 6.2831853;
+        vec3 off = vec3(cos(th), sin(th), 0.0) * uOrbit;
+        vec3 p = normalize(vPos) * uScale + off;
+        vec3 w = vec3(fbm3(p), fbm3(p + 11.3), fbm3(p + 27.9));
+        float n = fbm3(p + w * uWarp);
+        n = mix(n, ridge(n), uRidge);
+        float m = smoothstep(uLo, uHi, n);
+        float limb = pow(abs(vNrm.z), 0.40);
+        gl_FragColor = vec4(mix(uColA, uColB, m), m * uAmp * limb);
+      }`
+  });
+}
+
+// ---------- the wide atmosphere ----------
+function sunAirMat(discR, orbR){
+  return new THREE.ShaderMaterial({
+    uniforms: { uDisc: { value: discR / orbR } },
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv; uniform float uDisc;
+      void main(){
+        vec2 c = vUv * 2.0 - 1.0;
+        float r = length(c);
+        float wide = pow(smoothstep(1.0, uDisc, r), 1.9);
+        float core = pow(smoothstep(uDisc + 0.11, uDisc, r), 2.0);
+        float a = wide * 0.80 + core * 1.05;
+        a *= smoothstep(uDisc - 0.10, uDisc - 0.01, r);
+        vec3 col = mix(vec3(1.0, 0.24, 0.01), vec3(1.0, 0.66, 0.22), pow(wide, 0.5));
+        col = mix(col, vec3(1.0, 0.86, 0.52), core * 0.7);
+        gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+      }`
+  });
+}
+
+// ---------- flares that travel outward ----------
+function flareMat(discR, orbR){
+  return new THREE.ShaderMaterial({
+    uniforms: { uPh: { value: 0 }, uDisc: { value: discR / orbR } },
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: NOISE_GLSL + NOISE_PERIODIC + `
+      varying vec2 vUv; uniform float uPh; uniform float uDisc;
+      const float PER = 4.0;                 // integer: one loop = one whole period
+      void main(){
+        vec2 c = vUv * 2.0 - 1.0;
+        float r = length(c);
+        float ang = atan(c.y, c.x);
+        // z carries radius AND time, so features are born at the surface and ride out
+        float z = (r - uDisc) * 9.0 - uPh * PER;
+        vec3 p = vec3(cos(ang) * 2.7, sin(ang) * 2.7, z);
+        float n = fbmP(p, PER);
+        float plume = pow(ridge(n), 2.6);
+        float out_ = smoothstep(1.02, uDisc, r);        // thins as it climbs
+        float gate = smoothstep(uDisc - 0.05, uDisc + 0.03, r);
+        float a = plume * out_ * gate * 1.9;
+        vec3 col = mix(vec3(1.0, 0.30, 0.01), vec3(1.0, 0.90, 0.60), pow(plume, 0.45));
+        gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+      }`
+  });
+}
+
+// ---------- black hole ----------
+// Built, not modelled. The shape of a black hole is not geometry, it is what
+// light does on the way past, and no mesh carries that. Everything here is one
+// screen-space pass, drawn in the order light actually reaches the lens:
+//
+//   far half of the disk  ->  lensed arc  ->  shadow  ->  photon ring  ->  near half
+//
+// That order is the whole illusion. The far side of the disk disappears behind
+// the shadow, the near side crosses in front of it, and the band bending over
+// the top is the far side again, lifted into view by gravity.
+// ---------- eclipse ----------
+// Totality, not a vortex. Three things make an eclipse read: a disc that is
+// perfectly, flatly black; a corona that is pearl-white rather than hot, with
+// streamers of wildly uneven length; and a thread of chromosphere at the very
+// edge. The motion is almost nothing — a corona shimmers, it does not spin.
+function blackHoleMat(){
+  return new THREE.ShaderMaterial({
+    uniforms: { uPh: { value: 0 } },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: NOISE_GLSL + NOISE_PERIODIC + `
+      varying vec2 vUv;
+      uniform float uPh;
+
+      const float TAU  = 6.2831853;
+      const float R_SH = 0.480;     // the disc
+
+      void main(){
+        vec2 c = vUv * 2.0 - 1.0;
+        float r = length(c);
+        float ang = atan(c.y, c.x);
+
+        vec3 col = vec3(0.0);
+        float alpha = 0.0;
+
+        // One slow turn across the whole loop. Anything faster stops being a
+        // corona and becomes a pinwheel.
+        float a2 = ang - uPh * TAU;
+        vec2 ring = vec2(cos(a2), sin(a2));
+
+        // Two scales of structure. The broad one decides WHICH directions throw
+        // long streamers — that unevenness is the whole character of a corona,
+        // and sampling uniformly is what made the last version look like a cog.
+        float broad = fbm3(vec3(ring * 1.7, 0.0));
+        float fine  = fbm3(vec3(ring * 8.5, 3.1));
+        float wisp  = fbm3(vec3(ring * 19.0, 7.4));
+
+        float reach  = mix(R_SH * 1.22, 1.06, smoothstep(0.22, 0.80, broad));
+        float strand = pow(ridge(fine), 1.7) * 0.75 + pow(ridge(wisp), 2.6) * 0.35;
+
+        float glow = pow(smoothstep(reach, R_SH, r), 1.55);
+        float a = glow * (0.30 + 1.05 * strand);
+        a *= smoothstep(R_SH - 0.02, R_SH + 0.006, r);      // never over the disc
+
+        // pearl: faintly warm against the disc, cooling to blue-white outward
+        vec3 col2 = mix(vec3(0.80, 0.86, 1.00), vec3(1.00, 0.96, 0.88), pow(glow, 0.55));
+        col += col2 * a * 1.15;
+        alpha = max(alpha, clamp(a, 0.0, 1.0));
+
+        // the chromosphere: a thread, not a ring — a couple of pixels of heat
+        // right on the limb, which is what stops the disc looking like a hole
+        // cut in the page
+        float rim = smoothstep(0.014, 0.0, abs(r - R_SH * 1.008));
+        col += vec3(1.00, 0.90, 0.78) * pow(rim, 1.3) * 1.10;
+        alpha = max(alpha, pow(rim, 1.3) * 0.95);
+
+        // the disc: flat, total black
+        float sh = smoothstep(R_SH + 0.008, R_SH - 0.004, r);
+        col *= (1.0 - sh);
+        alpha = max(alpha, sh);
+
+        gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+      }`
+  });
+}
 // ---------- the worlds ----------
 const WORLDS = [
   {
@@ -389,7 +571,10 @@ const WORLDS = [
   {
     // Tripo GLB. warp 0 keeps the rim a true circle; the model is already a
     // sphere, so nothing here should melt or bulge it.
-    name:'world-earth', warp:0, noShade:true,   // no gloss: white overlays read as a film on a photographic texture, and a real lit sphere does not need faking key:3.6, fill:1.15, ambient:0.55,
+    // No gloss: white overlays read as a film on a photographic texture, and a
+    // real lit sphere does not need faking. Default rig lighting is what the
+    // shipped render used, so it stays.
+    name:'world-earth', warp:0, noShade:true,
     bg:()=>null,                       // no sky: the halo has to fade into the page
     env:()=>envFrom('#20304A',[['#FFFFFF',8,6,7,18,18],['#BFDBFF',-9,-2,5,14,14]]),
     async buildAsync(){
@@ -433,43 +618,76 @@ const WORLDS = [
     }
   },
   {
-    // A star is not lit, it emits. The colour map is pushed into emissive so
-    // the disc glows on its own, and the rig lights are dropped almost to
-    // nothing. The disc sits at 0.84 so the corona has room to burn out to the
-    // rim without being clipped by the circular cut.
-    name:'world-sun', warp:0, noShade:true, key:0.35, fill:0.12, ambient:0.9,
-    bg:()=>null,                       // no sky: the star floats on the page
+    // Seven layers. The GLB is only the innermost; everything convincing about
+    // fire is what sits on top of it, each at its own scale, speed and heat.
+    name:'world-sun', warp:0, noShade:true, key:0.22, fill:0.06, ambient:0.75,
+    bg:()=>null,
     env:()=>envFrom('#2B0C00',[['#FFCE7A',8,6,7,18,18]]),
     async buildAsync(){
-      const surface = await loadGLB('/incoming/sun-globe.glb', 0.88);
+      const R = 0.94;                    // the star fills the orb; the halo is a rim, not a cloud
+      const surface = await loadGLB('/incoming/sun-globe.glb', R);
       surface.traverse(o => {
         if (!o.isMesh || !o.material) return;
         const m = o.material;
         m.emissive = new THREE.Color(0xFFFFFF);
         m.emissiveMap = m.map;
-        m.emissiveIntensity = 1.25;
-        m.toneMapped = true;
+        m.emissiveIntensity = 1.55;
         m.needsUpdate = true;
       });
-      const plasma = new THREE.Mesh(new THREE.SphereGeometry(0.896, 128, 128), plasmaMat());
-      const corona = new THREE.Mesh(new THREE.PlaneGeometry(2.26, 2.26), coronaMat(0.88, 1.13));
-      corona.position.z = -0.02;         // sits behind the disc, never over it
+
+      // spin is in whole revolutions per loop, so every shell closes on itself
+      const SHELLS = [
+        { d:1.004, spin: 1, scale:1.8, warp:2.5, lo:0.28, hi:0.74, amp:0.95, orbit:1.05, colA:0x6E0C00, colB:0xFF5A06 },
+        { d:1.010, spin:-1, scale:3.0, warp:2.1, lo:0.34, hi:0.78, amp:0.80, orbit:1.35, colA:0xB01A00, colB:0xFF8A18 },
+        { d:1.016, spin: 2, scale:6.4, warp:1.3, lo:0.46, hi:0.84, amp:0.55, orbit:1.80, colA:0xFF6A0A, colB:0xFFD86A },
+        { d:1.022, spin:-2, scale:4.2, warp:2.9, lo:0.62, hi:0.95, amp:0.60, orbit:1.50, colA:0xFFB03A, colB:0xFFF3C8, ridge:true },
+        { d:1.028, spin: 3, scale:9.0, warp:0.9, lo:0.68, hi:0.92, amp:0.42, orbit:2.20, colA:0xFFD27A, colB:0xFFFFFF },
+      ];
+      const shells = SHELLS.map(o => {
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(R * o.d, 96, 96), shellMat(o));
+        mesh.userData.spin = o.spin;
+        return mesh;
+      });
+
+      const air   = new THREE.Mesh(new THREE.PlaneGeometry(2.26, 2.26), sunAirMat(R, 1.13));
+      const flare = new THREE.Mesh(new THREE.PlaneGeometry(2.26, 2.26), flareMat(R, 1.13));
+      air.position.z = -0.03; flare.position.z = -0.02;
+
       const g = new THREE.Group();
-      g.add(surface, plasma, corona);
-      g.userData = { surface, plasma, corona };
+      g.add(surface, ...shells, air, flare);
+      g.userData = { surface, shells, air, flare };
       return g;
     },
 
-    // Surface turns once; the plasma churns the other way at twice the rate, so
-    // the shear between them reads as convection rather than a spinning decal.
     animate(obj, ph){
       const th = ph * Math.PI * 2;
-      obj.rotation.set(0.08, 0, 0);
-      obj.userData.corona.rotation.x = -0.08;   // cancel the tilt: the card must face the lens
+      obj.rotation.set(0.06, 0, 0);
+      obj.userData.air.rotation.x = -0.06;
+      obj.userData.flare.rotation.x = -0.06;
       obj.userData.surface.rotation.y = th;
-      obj.userData.plasma.rotation.y = -th * 2.0;
-      obj.userData.plasma.material.uniforms.uPh.value = ph;
-      obj.userData.corona.material.uniforms.uPh.value = ph;
+      for (const s of obj.userData.shells){
+        s.rotation.y = th * s.userData.spin;
+        s.material.uniforms.uPh.value = ph;
+      }
+      obj.userData.flare.material.uniforms.uPh.value = ph;
+    }
+  },
+  {
+    // The GLB Tripo produced was a dark lumpy ball with grey patches — no disk,
+    // no horizon, nothing a black hole needs. None of it is used.
+    name:'world-blackhole', warp:0, noShade:true, key:0.0, fill:0.0, ambient:0.0,
+    bg:()=>null,
+    env:()=>envFrom('#05060C',[['#FFFFFF',8,6,7,10,10]]),
+    build(){
+      const hole = new THREE.Mesh(new THREE.PlaneGeometry(2.26, 2.26), blackHoleMat());
+      const g = new THREE.Group();
+      g.add(hole);
+      g.userData = { hole };
+      return g;
+    },
+    animate(obj, ph){
+      obj.rotation.set(0, 0, 0);          // the card must stay square to the lens
+      obj.userData.hole.material.uniforms.uPh.value = ph;
     }
   },
 ];
