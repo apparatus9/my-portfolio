@@ -13,9 +13,8 @@
     --ink:    #0A0A0A;
     --pill:   #F0F0F0;
     --pill-in:#48484A;
-    /* px between neighbouring orbs. Was a ring radius; the carousel is flat
-       now, so it is simply spacing. */
-    --r: 360px;
+    /* the carousel, in one place */
+    --r: 1150px;
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
@@ -43,6 +42,7 @@
   /* ---------- the carousel ---------- */
   .scene{
     position:fixed; inset:0;
+    perspective:850px; perspective-origin:50% 47%;
     touch-action:none; user-select:none; -webkit-user-select:none;
     cursor:grab; overflow:hidden;
   }
@@ -51,24 +51,28 @@
   /* cursor parallax gets its own layer so it never fights the drag */
   .tilt{
     position:absolute; inset:0;
-    transform:translate3d(0,0,0);
+    transform-style:preserve-3d;
+    transform:rotateX(0deg) rotateY(0deg);
     will-change:transform;
   }
   .ring{
     position:absolute; left:50%; top:47%; width:0; height:0;
     /* orbs are background-image divs, immune to any img reset */
+    transform-style:preserve-3d;
+    transform:rotateY(0deg);   /* JS writes transform directly; a custom property forces a style recalc each frame */
     will-change:transform;
   }
 
   /* each slot: swung to its angle, then pushed out to the rim */
   .slot{
     position:absolute; left:0; top:0;
-    will-change:transform;   /* JS writes translate3d + scale every frame */
+    transform-style:preserve-3d;
+    transform-origin:50% 50% var(--r);
+    transform:translateZ(calc(-1 * var(--r))) rotateY(calc(var(--i) * var(--step) * -1));
     opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
   }
   .slot.in{ opacity:1 }
-  /* carries --dur and --delay for the float on .orbimg below */
-  .slot__f{ position:relative }
+  .slot__f{ position:relative; animation:float var(--dur) var(--delay) ease-in-out infinite }
   @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
 
 
@@ -82,7 +86,7 @@
     margin:-260px 0 0 -260px;          /* centre the orb on its slot origin */
     background-size:contain; background-repeat:no-repeat; background-position:center;
     display:block; pointer-events:none; position:relative;
-    animation:float var(--dur) var(--delay) ease-in-out infinite;
+    backface-visibility:hidden;        /* far half of the ring drops out cleanly */
   }
 
 
@@ -93,13 +97,12 @@
     color:var(--pill-in); pointer-events:none;
   }
   @media (max-width:820px){
-    :root{ --r:250px }
-
-    .orbimg{ width:340px; height:340px; margin:-170px 0 0 -170px }
+    :root{ --r:760px }
+    .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
   }
   @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
   @media (prefers-reduced-motion: reduce){
-    .orbimg{ animation:none }
+    .slot__f{ animation:none }
     .slot{ transition:none }
   }
 </style>
@@ -237,10 +240,8 @@
 
   // mismatched periods, not just staggered delays: the orbs drift out of phase
   // and never resync, which is the whole trick behind the organic feel
-  const bill = slots.map(s => s.querySelector('.slot__f'));
-  const drawn = new Array(N).fill(null);   // last transform written per slot
-
-  bill.forEach((f, i) => {
+  slots.forEach((s, i) => {
+    const f = s.querySelector('.slot__f');
     f.style.setProperty('--dur',   (BOB_BASE + i * BOB_STAGGER).toFixed(2) + 's');
     f.style.setProperty('--delay', (calm ? 0 : ENTRY_DELAY + 1.2 + i * BOB_STAGGER).toFixed(2) + 's');
   });
@@ -308,7 +309,7 @@
     e.preventDefault();
   });
 
-  let tiltDrawn = null;
+  let ringDrawn = null, tiltDrawn = null, originDrawn = null;
   let prev = performance.now();
 
   (function frame(now){
@@ -320,26 +321,18 @@
     const t = 'rotateX(' + tiltX.v.toFixed(3) + 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg)';
     if (t !== tiltDrawn){ tiltEl.style.transform = t; tiltDrawn = t; }
 
-    // One transform per slot: slide it sideways, and shrink it with distance.
-    //
-    // No ring, no perspective, no rotation. Nothing here can foreshorten, cross
-    // the camera plane, or turn its back, so there is nothing to billboard and
-    // nothing to cull -- an orb is a circle because it is never rotated, and it
-    // leaves by moving off the edge like anything else on a page. Every bug in
-    // this carousel came from the 3D version of this line.
-    const gap = rad.v / STEP;                 // px of travel per degree of spin
-    for (let i = 0; i < N; i++){
-      let d = spin.v - i * STEP;
-      d = ((d + 180) % 360 + 360) % 360 - 180;    // nearest wrap, in degrees
-      const x = d * gap;
-      // Depth is faked by size alone. The curve is a hyperbola rather than a
-      // ramp so it never flattens: each orb further out keeps getting smaller,
-      // which is what perspective does and what stops the row reading as a
-      // strip of stickers. Tuned so a neighbour lands near 0.43 of the centre
-      // orb, the ratio measured off the reference site.
-      const sc = 1 / (1 + 1.35 * Math.pow(Math.abs(x) / rad.v, 1.1));
-      const tr = 'translate3d(' + x.toFixed(1) + 'px,0,0) scale(' + sc.toFixed(4) + ')';
-      if (tr !== drawn[i]){ slots[i].style.transform = tr; drawn[i] = tr; }
+    const r = 'rotateY(' + spin.v.toFixed(3) + 'deg)';
+    if (r !== ringDrawn){ ring.style.transform = r; ringDrawn = r; }
+
+    // the slots only need rewriting while the radius is still in motion
+    const origin = '50% 50% ' + rad.v.toFixed(1) + 'px';
+    if (origin !== originDrawn){
+      const z = 'translateZ(' + (-rad.v).toFixed(1) + 'px) ';
+      for (let i = 0; i < N; i++){
+        slots[i].style.transformOrigin = origin;
+        slots[i].style.transform = z + 'rotateY(' + (-i * STEP) + 'deg)';
+      }
+      originDrawn = origin;
     }
 
     requestAnimationFrame(frame);
