@@ -256,15 +256,18 @@
 
   // mismatched periods, not just staggered delays: the orbs drift out of phase
   // and never resync, which is the whole trick behind the organic feel
-  // where an orb starts fading out and where it is gone, in degrees around the
-  // ring from dead ahead. 90 is the camera plane -- past it a billboarded face
-  // crosses in front of the lens and magnifies, so the fade has to finish first.
-  const FADE_START = 72, FADE_END = 88;
+  // NEAR_CUT is in degrees from dead ahead: the angle past which a slot crosses
+  // the camera plane and its scale runs away. EDGE_FADE/EDGE_GONE are distances
+  // from the centre of the window measured in half-viewports, so 1.0 is exactly
+  // the left or right edge. Fading a little past the edge means an orb is
+  // already out of frame by the time it is fully gone, on any monitor.
+  const NEAR_CUT = 96, EDGE_FADE = 0.86, EDGE_GONE = 1.22;
 
   const bill = slots.map(s => s.querySelector('.slot__f'));
   const billDrawn = new Array(N).fill(null);
   const billShown = new Array(N).fill(null);
   const billFaded = new Array(N).fill(null);
+  const billRect  = new Array(N).fill(null);
 
   bill.forEach((f, i) => {
     f.style.setProperty('--dur',   (BOB_BASE + i * BOB_STAGGER).toFixed(2) + 's');
@@ -366,16 +369,33 @@
     // on a 1500px window but well inside a wide one, so the orb blinks out
     // mid-air. The ramp runs over the last 16 degrees of the arc, smoothstepped
     // so it eases at both ends instead of starting and stopping abruptly.
+    // Read every face's position first, then write. Reading after a write in
+    // the same frame forces a synchronous layout per slot; this way the reads
+    // use last frame's transforms, which is one frame stale and invisible.
+    for (let i = 0; i < N; i++) billRect[i] = bill[i].getBoundingClientRect();
+
+    const half = innerWidth / 2;
     for (let i = 0; i < N; i++){
       let a = spin.v - i * STEP;
       a = ((a + 180) % 360 + 360) % 360 - 180;       // normalise to -180..180
-      const m = Math.abs(a);
 
-      let op = 1;
-      if (m >= FADE_END) op = 0;
-      else if (m > FADE_START){
-        const t = 1 - (m - FADE_START) / (FADE_END - FADE_START);
-        op = t * t * (3 - 2 * t);                    // smoothstep
+      // Hard cut for the near half. Past this the slot crosses the camera
+      // plane and its scale runs away -- measured at 4700px and beyond, an orb
+      // swallowing the viewport.
+      let op = Math.abs(a) > NEAR_CUT ? 0 : 1;
+
+      // Fade by where the orb actually IS, not by its angle. Angle was the bug:
+      // a fixed cut-off lands at a different screen position on every viewport,
+      // so a window tuned on a 1500px screen still had orbs winking out in open
+      // space on a 2560px one. Distance from centre, in units of half the
+      // viewport, is the same everywhere.
+      if (op && billRect[i].width){
+        const d = Math.abs(billRect[i].x + billRect[i].width / 2 - half) / half;
+        if (d >= EDGE_GONE) op = 0;
+        else if (d > EDGE_FADE){
+          const t = 1 - (d - EDGE_FADE) / (EDGE_GONE - EDGE_FADE);
+          op = t * t * (3 - 2 * t);                  // smoothstep
+        }
       }
 
       const gone = op === 0;
