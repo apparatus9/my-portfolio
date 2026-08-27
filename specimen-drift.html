@@ -257,16 +257,14 @@
   // mismatched periods, not just staggered delays: the orbs drift out of phase
   // and never resync, which is the whole trick behind the organic feel
   // NEAR_CUT is in degrees from dead ahead: the angle past which a slot crosses
-  // the camera plane and its scale runs away. EDGE_FADE/EDGE_GONE are distances
-  // from the centre of the window measured in half-viewports, so 1.0 is exactly
-  // the left or right edge. Fading a little past the edge means an orb is
-  // already out of frame by the time it is fully gone, on any monitor.
-  const NEAR_CUT = 96, EDGE_FADE = 0.86, EDGE_GONE = 1.22;
+  // the camera plane and its scale runs away. OFF_PAD is the extra margin, in
+  // pixels, an orb must clear the window edge by before it is dropped -- it is
+  // hidden only when fully outside, so nothing is ever seen to vanish.
+  const NEAR_CUT = 96, OFF_PAD = 40;
 
   const bill = slots.map(s => s.querySelector('.slot__f'));
   const billDrawn = new Array(N).fill(null);
   const billShown = new Array(N).fill(null);
-  const billFaded = new Array(N).fill(null);
   const billRect  = new Array(N).fill(null);
 
   bill.forEach((f, i) => {
@@ -379,34 +377,32 @@
       let a = spin.v - i * STEP;
       a = ((a + 180) % 360 + 360) % 360 - 180;       // normalise to -180..180
 
-      // Hard cut for the near half. Past this the slot crosses the camera
-      // plane and its scale runs away -- measured at 4700px and beyond, an orb
-      // swallowing the viewport.
-      let op = Math.abs(a) > NEAR_CUT ? 0 : 1;
+      // Nothing fades. An orb is dropped only once it is COMPLETELY outside the
+      // window, so what the eye sees is an orb sliding off the edge -- which is
+      // what an orb leaving is supposed to look like.
+      //
+      // Three goes at this were spent tuning a fade, and a fade is itself a
+      // disappearance you can watch: dimming an orb that is still on screen
+      // reads as it winking out, however smooth the curve. There is no need for
+      // one. Measured, a slot is already a full viewport-half past the edge by
+      // about 66deg, while the guard below does not bite until 96, so an orb
+      // has always left the frame long before anything has to hide it.
+      const r = billRect[i];
+      const outside = r.width
+        ? Math.abs(r.x + r.width / 2 - half) - r.width / 2 > half + OFF_PAD
+        : false;
 
-      // Fade by where the orb actually IS, not by its angle. Angle was the bug:
-      // a fixed cut-off lands at a different screen position on every viewport,
-      // so a window tuned on a 1500px screen still had orbs winking out in open
-      // space on a 2560px one. Distance from centre, in units of half the
-      // viewport, is the same everywhere.
-      if (op && billRect[i].width){
-        const d = Math.abs(billRect[i].x + billRect[i].width / 2 - half) / half;
-        if (d >= EDGE_GONE) op = 0;
-        else if (d > EDGE_FADE){
-          const t = 1 - (d - EDGE_FADE) / (EDGE_GONE - EDGE_FADE);
-          op = t * t * (3 - 2 * t);                  // smoothstep
-        }
-      }
+      // The guard, and only the guard: past this a slot crosses the camera
+      // plane and its scale runs away (measured at 4700px and beyond). By then
+      // it is far outside the window, so this never fires on anything visible.
+      const gone = outside || Math.abs(a) > NEAR_CUT;
 
-      const gone = op === 0;
       if (gone !== billShown[i]){
         bill[i].style.visibility = gone ? 'hidden' : '';
         billShown[i] = gone;
       }
       if (gone) continue;
 
-      const o = op.toFixed(3);
-      if (o !== billFaded[i]){ bill[i].style.opacity = o; billFaded[i] = o; }
       const b = 'rotateY(' + (-a).toFixed(2) + 'deg)';
       if (b !== billDrawn[i]){ bill[i].style.transform = b; billDrawn[i] = b; }
     }
