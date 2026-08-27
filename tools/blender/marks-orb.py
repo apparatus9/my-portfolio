@@ -182,9 +182,18 @@ def warm_world(strength=0.9):
 # ------------------------------------------------------------------- backdrop
 
 def backdrop(radius=1.0):
-    """Light brown, radial: warm and bright behind the marks, deepening to a
-    toasted edge so the orb reads as a sphere and not a flat brown disc."""
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5, radius=radius)
+    """A liquid-marble gradient, morphing, in the manner of dirt's Liquid
+    Gradient world: bands of colour folded into each other by warped noise, a
+    bright belt across the middle, and the whole field turning slowly so the
+    bands flow rather than sit.
+
+    Warm rather than their orange/magenta, so it stays the light brown orb that
+    was asked for -- the treatment is theirs, the palette is this page's.
+
+    Transparent on the near side, emissive on the far side (switched on
+    Backfacing) so the camera looks through the front and reads the lit far wall
+    behind the marks."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=6, radius=radius)
     ob = bpy.context.active_object
     ob.name = 'backdrop'
     bpy.ops.object.shade_smooth()
@@ -200,34 +209,61 @@ def backdrop(radius=1.0):
     emit.inputs['Strength'].default_value = 1.0
 
     coord = nt.nodes.new('ShaderNodeTexCoord')
-    sep = nt.nodes.new('ShaderNodeSeparateXYZ')
-    sx = nt.nodes.new('ShaderNodeMath'); sx.operation = 'SUBTRACT'; sx.inputs[1].default_value = 0.5
-    sz = nt.nodes.new('ShaderNodeMath'); sz.operation = 'SUBTRACT'; sz.inputs[1].default_value = 0.5
-    qx = nt.nodes.new('ShaderNodeMath'); qx.operation = 'MULTIPLY'
-    qz = nt.nodes.new('ShaderNodeMath'); qz.operation = 'MULTIPLY'
-    add = nt.nodes.new('ShaderNodeMath'); add.operation = 'ADD'
-    rt = nt.nodes.new('ShaderNodeMath'); rt.operation = 'SQRT'
-    sc = nt.nodes.new('ShaderNodeMath'); sc.operation = 'MULTIPLY'; sc.inputs[1].default_value = 2.0
-    nt.links.new(coord.outputs['Generated'], sep.inputs['Vector'])
-    nt.links.new(sep.outputs['X'], sx.inputs[0])
-    nt.links.new(sep.outputs['Z'], sz.inputs[0])
-    nt.links.new(sx.outputs['Value'], qx.inputs[0]); nt.links.new(sx.outputs['Value'], qx.inputs[1])
-    nt.links.new(sz.outputs['Value'], qz.inputs[0]); nt.links.new(sz.outputs['Value'], qz.inputs[1])
-    nt.links.new(qx.outputs['Value'], add.inputs[0])
-    nt.links.new(qz.outputs['Value'], add.inputs[1])
-    nt.links.new(add.outputs['Value'], rt.inputs[0])
-    nt.links.new(rt.outputs['Value'], sc.inputs[0])
+
+    # The field turns a whole revolution across the loop, which both animates
+    # the marbling and closes the loop exactly -- a partial turn would snap.
+    spin_map = nt.nodes.new('ShaderNodeMapping')
+    nt.links.new(coord.outputs['Object'], spin_map.inputs['Vector'])
+
+    # Noise-warped bands. The wave supplies the banding, the noise bends it, and
+    # the bending is what folds one colour into the next instead of leaving
+    # concentric stripes.
+    nse = nt.nodes.new('ShaderNodeTexNoise')
+    nse.inputs['Scale'].default_value = 0.85
+    nse.inputs['Detail'].default_value = 2.0
+    nse.inputs['Roughness'].default_value = 0.35
+    wav = nt.nodes.new('ShaderNodeTexWave')
+    wav.wave_type = 'BANDS'
+    wav.bands_direction = 'Z'
+    wav.inputs['Scale'].default_value = 0.9
+    wav.inputs['Distortion'].default_value = 7.0
+    wav.inputs['Detail'].default_value = 1.0
+    nt.links.new(spin_map.outputs['Vector'], nse.inputs['Vector'])
+    nt.links.new(nse.outputs['Fac'], wav.inputs['Vector'])
 
     ramp = nt.nodes.new('ShaderNodeValToRGB')
     ramp.color_ramp.interpolation = 'B_SPLINE'
     e = ramp.color_ramp.elements
-    e[0].position, e[0].color = 0.00, (0.86, 0.72, 0.55, 1)    # light tan centre
-    e[1].position, e[1].color = 1.00, (0.30, 0.20, 0.13, 1)    # toasted rim
-    for pos, col in ((0.46, (0.72, 0.56, 0.40, 1)),
-                     (0.78, (0.48, 0.34, 0.23, 1))):
+    e[0].position, e[0].color = 0.05, (0.16, 0.09, 0.05, 1)     # deep roast
+    e[1].position, e[1].color = 0.95, (0.99, 0.93, 0.84, 1)     # cream
+    for pos, col in ((0.30, (0.55, 0.32, 0.16, 1)),             # burnt caramel
+                     (0.52, (0.90, 0.62, 0.34, 1)),             # amber
+                     (0.74, (0.82, 0.55, 0.40, 1))):            # clay
         ramp.color_ramp.elements.new(pos).color = col
-    nt.links.new(sc.outputs['Value'], ramp.inputs['Fac'])
-    nt.links.new(ramp.outputs['Color'], emit.inputs['Color'])
+    nt.links.new(wav.outputs['Fac'], ramp.inputs['Fac'])
+
+    # The bright belt. Theirs has a hot band running across the equator that
+    # reads as the sphere's specular; an emissive backdrop has no specular of
+    # its own, so it is drawn in as a narrow rise in brightness around z = 0.
+    sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+    nt.links.new(coord.outputs['Object'], sep.inputs['Vector'])
+    belt = nt.nodes.new('ShaderNodeMath'); belt.operation = 'ABSOLUTE'
+    nt.links.new(sep.outputs['Z'], belt.inputs[0])
+    bmap = nt.nodes.new('ShaderNodeMapRange')
+    bmap.inputs['From Min'].default_value = 0.0
+    bmap.inputs['From Max'].default_value = 0.16
+    bmap.inputs['To Min'].default_value = 1.0
+    bmap.inputs['To Max'].default_value = 0.0
+    bmap.clamp = True
+    nt.links.new(belt.outputs['Value'], bmap.inputs['Value'])
+
+    lit = nt.nodes.new('ShaderNodeMix')
+    lit.data_type = 'RGBA'
+    lit.blend_type = 'MIX'
+    lit.inputs[7].default_value = (1.0, 0.97, 0.93, 1)          # belt colour
+    nt.links.new(bmap.outputs['Result'], lit.inputs['Factor'])
+    nt.links.new(ramp.outputs['Color'], lit.inputs[6])
+    nt.links.new(lit.outputs[2], emit.inputs['Color'])
 
     mix = nt.nodes.new('ShaderNodeMixShader')
     nt.links.new(geo.outputs['Backfacing'], mix.inputs['Fac'])
@@ -236,11 +272,19 @@ def backdrop(radius=1.0):
     nt.links.new(mix.outputs['Shader'], out.inputs['Surface'])
     ob.data.materials.append(m)
     ob.visible_shadow = False
-    # Out of reflection rays. A mirror sealed inside a brown wall reflects brown
-    # and vanishes into it -- the first pass rendered the marks the same tan as
-    # the orb. The camera still sees the orb warm; the marks now mirror the
-    # studio instead, which is what lets the thin film show any colour at all.
+    # Out of reflection rays. A mirror sealed inside a coloured wall reflects
+    # that colour and vanishes into it; the marks mirror the studio instead.
     ob.visible_glossy = False
+
+    if LOOP > 1:
+        rot = spin_map.inputs['Rotation']
+        for frame, ang in ((1, 0.0), (LOOP + 1, TAU)):
+            rot.default_value[2] = ang
+            rot.keyframe_insert('default_value', index=2, frame=frame)
+        for fc in m.node_tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+            fc.extrapolation = 'LINEAR'
     return ob
 
 
