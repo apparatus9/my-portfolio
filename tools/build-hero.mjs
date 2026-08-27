@@ -22,16 +22,29 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // are NOT inlined: a base64 webm would add most of a megabyte to the page for
 // one orb, so they are referenced as files and the page stops being
 // self-contained.
+// The ring is the Blender-rendered set now. Two rounds of pruning got here:
+// first the five painted stills (acid, bloom, liquid, plant, chrome-cluster),
+// which sat dead among orbs that turn, then the three celestial ones (earth,
+// sun, blackhole) left over from the space version of this page. Every asset
+// is still in assets/3d/ -- any of them comes back by re-adding its line.
 const WORLDS = [
-  ['world-acid',           'Acid grid world'],
-  ['world-bloom',          'Glowing bloom world'],
-  ['world-liquid',         'Marbled liquid world'],
-  ['world-plant',          'Chrome plant world'],
-  ['world-chrome-cluster', 'Chrome cluster world'],
-  ['world-earth',          'Rotating Earth', 'video'],
+  ['world-phones',         'Chrome phones', 'video'],
+  ['world-smoke',          'Smoke handshake', 'video'],
+  ['world-brain',          'Neural brain', 'video'],
+  ['world-marks',          'Question and answer', 'video'],
 ];
 
-const SLOTS = 10;   // 36 degrees apart; with six worlds, Earth lands once and the rest twice
+// One slot per world, and the step follows. This used to be a hardcoded 10 with
+// 36deg written into both the CSS and the JS of the template; adding an
+// eleventh world silently dropped it off the ring, because slot i took
+// WORLDS[i % length] and i never reached 10.
+// At least ten slots, whatever the world count. The step is 360/SLOTS, and a
+// slot turned much past ~40deg is nearly edge-on to the lens -- with four
+// worlds in four slots the step is 90deg and the neighbours collapse to zero
+// width, leaving one orb alone on the page. Repeating a short list around a
+// fuller ring is what keeps every slot facing the viewer.
+const SLOTS = Math.max(WORLDS.length, 10);
+const STEP = +(360 / SLOTS).toFixed(4);
 
 let html = readFileSync(join(root, 'tools/hero.template.html'), 'utf8');
 
@@ -55,7 +68,9 @@ const slots = Array.from({ length: SLOTS }, (_, i) => {
          `<div class="slot__f">` + face + `</div></div>`;
 }).join('\n');
 
-html = html.replace('{{IMGCSS}}', css).replace('{{SLOTS}}', slots);
+html = html.replace('{{IMGCSS}}', css)
+           .replace('{{SLOTS}}', slots)
+           .replaceAll('{{STEP}}', String(STEP));
 
 if (html.includes('{{')) throw new Error('template still has unreplaced placeholders');
 
