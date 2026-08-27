@@ -14,7 +14,7 @@
     --pill:   #F0F0F0;
     --pill-in:#48484A;
     /* the carousel, in one place */
-    --r: 785px;
+    --r: 1150px;
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
@@ -50,7 +50,7 @@
        land in front of the lens and scale up to 2.8x, filling the screen with
        one orb. Scaling both by the same factor tightens the spacing and leaves
        the orbs the size they were. */
-    perspective:581px; perspective-origin:50% 47%;
+    perspective:850px; perspective-origin:50% 47%;
     touch-action:none; user-select:none; -webkit-user-select:none;
     cursor:grab; overflow:hidden;
   }
@@ -112,8 +112,8 @@
     color:var(--pill-in); pointer-events:none;
   }
   @media (max-width:820px){
-    :root{ --r:570px }
-    .scene{ perspective:420px }
+    :root{ --r:760px }
+
     .orbimg{ width:340px; height:340px; margin:-170px 0 0 -170px }
   }
   @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
