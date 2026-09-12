@@ -31,7 +31,8 @@ ap.add_argument('--name', default='world-phones')
 ap.add_argument('--size', type=int, default=512)
 ap.add_argument('--frames', type=int, default=180)
 ap.add_argument('--samples', type=int, default=128)
-ap.add_argument('--count', type=int, default=9)       # phones in the swarm
+ap.add_argument('--count', type=int, default=9)
+ap.add_argument('--pscale', type=float, default=1.0)  # phone size
 ap.add_argument('--fstop', type=float, default=8.0)   # lower = more depth blur
 ap.add_argument('--still', type=int, default=0)
 ap.add_argument('--seed', type=int, default=7)
@@ -305,7 +306,7 @@ def screen():
 
 # ---------------------------------------------------------------------- phone
 
-PH_W, PH_T, PH_L = 0.30, 0.036, 0.62      # width, thickness, length
+PH_W, PH_T, PH_L = 0.30 * A.pscale, 0.036 * A.pscale, 0.62 * A.pscale
 
 
 def smooth(ob, angle=0.6):
@@ -405,9 +406,9 @@ def backdrop(radius=0.96):
     ramp = nt.nodes.new('ShaderNodeValToRGB')
     ramp.color_ramp.interpolation = 'B_SPLINE'
     e = ramp.color_ramp.elements
-    e[0].position, e[0].color = 0.18, (0.72, 0.62, 0.86, 1)     # lavender floor
-    e[1].position, e[1].color = 0.86, (0.62, 0.90, 0.84, 1)     # mint ceiling
-    ramp.color_ramp.elements.new(0.52).color = (0.80, 0.86, 0.92, 1)
+    e[0].position, e[0].color = 0.18, (0.60, 0.36, 0.98, 1)     # lavender floor
+    e[1].position, e[1].color = 0.86, (0.28, 0.96, 0.80, 1)     # mint ceiling
+    ramp.color_ramp.elements.new(0.52).color = (0.74, 0.74, 1.00, 1)
 
     mix = nt.nodes.new('ShaderNodeMixShader')
     nt.links.new(coord.outputs['Object'], sep.inputs['Vector'])
@@ -504,8 +505,9 @@ def swarm(scene, mats):
     for i in range(A.count):
         ph = phone(mats, str(i))
         a = TAU * i / A.count + rng.uniform(-0.16, 0.16)
-        rad = rng.uniform(0.38, 0.62)
-        ph.location = (math.cos(a) * rad, math.sin(a) * rad, rng.uniform(-0.52, 0.52))
+        rad = rng.uniform(0.12, 0.34) if A.count < 6 else rng.uniform(0.38, 0.62)
+        ph.location = (math.cos(a) * rad, math.sin(a) * rad,
+                       rng.uniform(-0.22, 0.22) if A.count < 6 else rng.uniform(-0.52, 0.52))
         ph.parent = hub
 
         # tumble: whole turns only, or the loop breaks

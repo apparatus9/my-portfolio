@@ -1,0 +1,341 @@
+<title>REFERENCE TEST - not yours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&display=swap">
+
+<style>
+  :root{
+    /* Pure white, sampled off dirtverse's live hero rather than read out of
+       their stylesheet — the #f2f2ef token in there never paints the page.
+       Like theirs, this page stays in one light world and carries no dark
+       theme: the orbs are lit for a bright room. */
+    --paper:  #FFFFFF;
+    --ink:    #0A0A0A;
+    --pill:   #F0F0F0;
+    --pill-in:#48484A;
+    /* the carousel, in one place */
+    --r: 1150px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  html,body{ height:100% }
+  body{ background:var(--paper); color:var(--ink);
+        font-family:Archivo,system-ui,sans-serif; overflow:hidden }
+
+  /* ---------- chrome ---------- */
+  .bar{
+    position:fixed; inset:0 0 auto 0; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 20px; pointer-events:none;
+  }
+  .bar > *{ pointer-events:auto }
+  .nav{ display:flex; gap:9px }
+  .nav a,.contact{ font-size:14px; font-weight:500; text-decoration:none;
+                   padding:7px 17px; border-radius:999px; white-space:nowrap }
+  .nav a{ background:var(--pill); color:var(--pill-in) }
+  .nav a:hover{ color:var(--ink) }
+  .contact{ background:var(--ink); color:var(--paper) }
+  .brand{ font-weight:900; font-size:19px; letter-spacing:-.05em }
+  .nav a:focus-visible,.contact:focus-visible,.scene:focus-visible{
+    outline:2px solid var(--ink); outline-offset:3px }
+
+  /* ---------- the carousel ---------- */
+  .scene{
+    position:fixed; inset:0;
+    perspective:850px; perspective-origin:50% 47%;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+    cursor:grab; overflow:hidden;
+  }
+  .scene[data-drag="1"]{ cursor:grabbing }
+  /* ring spins in place; the slots themselves carry the depth */
+  /* cursor parallax gets its own layer so it never fights the drag */
+  .tilt{
+    position:absolute; inset:0;
+    transform-style:preserve-3d;
+    transform:rotateX(0deg) rotateY(0deg);
+    will-change:transform;
+  }
+  .ring{
+    position:absolute; left:50%; top:47%; width:0; height:0;
+    /* orbs are background-image divs, immune to any img reset */
+    transform-style:preserve-3d;
+    transform:rotateY(0deg);   /* JS writes transform directly; a custom property forces a style recalc each frame */
+    will-change:transform;
+  }
+
+  /* each slot: swung to its angle, then pushed out to the rim */
+  .slot{
+    position:absolute; left:0; top:0;
+    transform-style:preserve-3d;
+    transform-origin:50% 50% var(--r);
+    transform:translateZ(calc(-1 * var(--r))) rotateY(calc(var(--i) * var(--step) * -1));
+    opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
+  }
+  .slot.in{ opacity:1 }
+  .slot__f{ position:relative; animation:float var(--dur) var(--delay) ease-in-out infinite }
+  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
+
+
+  /* A video face sizes like an image face. max-width matters: a host
+     stylesheet's video{max-width:100%} resolves against the zero-width .ring
+     and collapses it — the same trap that rules out <img> here. */
+  .orbvid{ max-width:none; object-fit:contain; background:none }
+
+  .orbimg{
+    width:520px; height:520px;
+    margin:-260px 0 0 -260px;          /* centre the orb on its slot origin */
+    background-size:contain; background-repeat:no-repeat; background-position:center;
+    display:block; pointer-events:none; position:relative;
+    backface-visibility:hidden;        /* far half of the ring drops out cleanly */
+  }
+
+
+  .foot{
+    position:fixed; left:0; right:0; bottom:18px; z-index:10;
+    display:flex; justify-content:center; align-items:center; gap:14px;
+    font-size:11px; font-weight:500; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--pill-in); pointer-events:none;
+  }
+  @media (max-width:820px){
+    :root{ --r:760px }
+    .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
+  }
+  @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
+  @media (prefers-reduced-motion: reduce){
+    .slot__f{ animation:none }
+    .slot{ transition:none }
+  }
+</style>
+
+
+<header class="bar">
+  <nav class="nav">
+    <a href="#" onclick="return false">About</a>
+    <a href="#" onclick="return false">Work</a>
+    <a href="#" onclick="return false">Journal</a>
+  </nav>
+  <span class="brand">omada</span>
+  <a class="contact" href="#" onclick="return false">Contact</a>
+</header>
+
+<div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys.">
+  <div class="ring" id="ring" style="--step:36deg">
+    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt1.webm" poster="assets/3d/_ref/dirt1.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Chrome phones"></video></div></div>
+    <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt2.webm" poster="assets/3d/_ref/dirt2.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Smoke handshake"></video></div></div>
+    <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt3.webm" poster="assets/3d/_ref/dirt3.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Neural brain"></video></div></div>
+    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt4.webm" poster="assets/3d/_ref/dirt4.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Question and answer"></video></div></div>
+    <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt1.webm" poster="assets/3d/_ref/dirt1.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Chrome phones"></video></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt2.webm" poster="assets/3d/_ref/dirt2.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Smoke handshake"></video></div></div>
+    <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt3.webm" poster="assets/3d/_ref/dirt3.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Neural brain"></video></div></div>
+    <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt4.webm" poster="assets/3d/_ref/dirt4.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Question and answer"></video></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt1.webm" poster="assets/3d/_ref/dirt1.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Chrome phones"></video></div></div>
+    <div class="slot" style="--i:9"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/dirt2.webm" poster="assets/3d/_ref/dirt2.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Smoke handshake"></video></div></div>
+  </div>
+</div>
+
+
+<div class="foot">
+  <span>Drag to slide</span>
+</div>
+
+<script>
+(() => {
+  const scene = document.getElementById('scene');
+  const slots = [...document.querySelectorAll('.slot')];
+  const N     = slots.length;
+
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const ring = document.getElementById('ring');
+
+  // Chrome declines the autoplay attribute often enough that a video orb just
+  // sits on its poster frame. Ask directly, and retry on first interaction.
+  // Getting a video orb to actually run turns out to need belt and braces.
+  // The autoplay attribute can be declined, a play() call can be rejected
+  // before any data has arrived, and playbackRate is reset by some loads. So:
+  // ask on every event that means "more is ready", and again on first input.
+  const FACE_RATE = 1;            // full rate: the slow revolution is baked into the frames now
+  const faces = [...document.querySelectorAll('video.orbvid')];
+  const startFaces = () => faces.forEach(v => {
+    v.playbackRate = FACE_RATE;
+    const p = v.play();
+    if (p) p.catch(() => {});
+  });
+  faces.forEach(v => {
+    ['loadeddata', 'canplay', 'canplaythrough', 'stalled', 'suspend'].forEach(
+      e => v.addEventListener(e, startFaces));
+  });
+  startFaces();
+  addEventListener('pointerdown', startFaces);
+  addEventListener('keydown', startFaces);
+  document.addEventListener('visibilitychange', startFaces);
+
+  // ?debug=1 turns the footer into a live readout of what the video is doing
+  if (new URLSearchParams(location.search).get('debug') === '1'){
+    const out = document.querySelector('.foot span');
+    setInterval(() => {
+      out.textContent = faces.map(v =>
+        (v.paused ? 'PAUSED' : 'playing') +
+        ' ready:' + v.readyState +
+        ' t:' + v.currentTime.toFixed(1) +
+        ' rate:' + v.playbackRate +
+        ' size:' + v.videoWidth + 'x' + v.videoHeight +
+        (v.error ? ' ERR:' + v.error.code : '')
+      ).join(' | ') || 'no video faces';
+    }, 250);
+  }
+
+  const STEP = 36;
+
+  // ── the dirtverse motion model ───────────────────────────────────────
+  // Every constant below is lifted from their compiled Framer component, not
+  // eyeballed. Three independent layers stack: a cursor tilt on the outside,
+  // the drag spin in the middle, and a per-orb bob in CSS underneath.
+  const SENS        = 0.5;    // rotation = rot0 - dx * SENS
+  const ENTRY_DELAY = 0.25;   // seconds; their own site sits at 2.78, being below the fold
+  const ARM_AFTER   = 1200;   // ms after the entrance before a drag is accepted
+  const TILT_X      = 5;      // deg of rotateX, driven by cursor Y
+  const TILT_Y      = 3;      // deg of rotateY, driven by cursor X
+  const BOB_BASE    = 2.8;    // s, plus 0.08 per orb
+  const BOB_STAGGER = 0.08;
+
+  const coarse = matchMedia('(pointer: coarse)').matches;
+
+  // framer-motion springs run at mass 1, so a = -k(x - target) - c*v.
+  // All three are overdamped: 24 against a critical 2*sqrt(35) = 11.8. That
+  // ratio, not the stiffness, is what makes the ring feel heavy and slow.
+  const SPIN_SPRING   = coarse ? { k: 28, c: 22 } : { k: 35, c: 24 };
+  const RADIUS_SPRING = coarse ? { k: 24, c: 18 } : { k: 30, c: 20 };
+  const TILT_SPRING   = { k: 50, c: 18 };
+
+  // the tilt rides outside the spin, so cursor parallax never fights the drag
+  const tiltEl = document.createElement('div');
+  tiltEl.className = 'tilt';
+  ring.parentNode.insertBefore(tiltEl, ring);
+  tiltEl.appendChild(ring);
+
+  let R = 1150;
+  const readGeometry = () => {
+    const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--r'));
+    if (r) R = r;
+  };
+  readGeometry();
+
+  const mk = (v, cfg) => ({ v, target: v, vel: 0, k: cfg.k, c: cfg.c });
+  const advance = (s, dt) => {
+    let t = dt;
+    while (t > 0){                        // substep, so a dropped frame can't
+      const h = Math.min(t, 1 / 240);     // blow the integrator up
+      s.vel += (-s.k * (s.v - s.target) - s.c * s.vel) * h;
+      s.v   += s.vel * h;
+      t -= h;
+    }
+  };
+
+  // entrance: the ring unspins 90deg while the radius collapses from 1.8x
+  const spin  = mk(calm ? 180 : 270, SPIN_SPRING);
+  const rad   = mk(calm ? R : R * 1.8, RADIUS_SPRING);
+  const tiltX = mk(0, TILT_SPRING);
+  const tiltY = mk(0, TILT_SPRING);
+
+  // mismatched periods, not just staggered delays: the orbs drift out of phase
+  // and never resync, which is the whole trick behind the organic feel
+  slots.forEach((s, i) => {
+    const f = s.querySelector('.slot__f');
+    f.style.setProperty('--dur',   (BOB_BASE + i * BOB_STAGGER).toFixed(2) + 's');
+    f.style.setProperty('--delay', (calm ? 0 : ENTRY_DELAY + 1.2 + i * BOB_STAGGER).toFixed(2) + 's');
+  });
+
+  let armed = calm;
+  if (calm) slots.forEach(s => s.classList.add('in'));
+  else {
+    setTimeout(() => {
+      spin.target = 180;
+      rad.target  = R;
+      slots.forEach(s => s.classList.add('in'));
+    }, ENTRY_DELAY * 1000);
+    setTimeout(() => { armed = true; }, ENTRY_DELAY * 1000 + ARM_AFTER);
+  }
+
+  // --- drag: no inertia, no snap ---------------------------------------
+  // Their release handler genuinely does nothing. What reads as momentum is
+  // only the spring still catching up to where your finger left the target.
+  let dragging = false, x0 = 0, rot0 = 0;
+
+  scene.addEventListener('pointerdown', e => {
+    if (!armed || e.target.closest('.bar') || e.target.closest('.foot')) return;
+    dragging = true; x0 = e.clientX; rot0 = spin.target;
+    scene.setPointerCapture(e.pointerId);
+    scene.dataset.drag = '1';
+  });
+
+  let rect = null, tiltRaf = 0;
+  const dropRect = () => { rect = null; };
+  addEventListener('scroll', dropRect, { passive: true });
+  addEventListener('resize', () => {
+    dropRect(); readGeometry();
+    if (!dragging) rad.target = R;
+  }, { passive: true });
+
+  scene.addEventListener('pointermove', e => {
+    if (dragging){ spin.target = rot0 - (e.clientX - x0) * SENS; return; }
+    if (calm || coarse || !armed || tiltRaf) return;
+    const px = e.clientX, py = e.clientY;
+    tiltRaf = requestAnimationFrame(() => {   // one cached rect read per frame
+      tiltRaf = 0;
+      if (!rect) rect = scene.getBoundingClientRect();
+      tiltX.target = -(((py - rect.top)  / rect.height) * 2 - 1) * TILT_X;
+      tiltY.target = -(((px - rect.left) / rect.width)  * 2 - 1) * TILT_Y;
+    });
+  });
+
+  const release = e => {
+    if (!dragging) return;
+    dragging = false; scene.dataset.drag = '0';
+    if (e && e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
+      scene.releasePointerCapture(e.pointerId);
+  };
+  scene.addEventListener('pointerup', release);
+  scene.addEventListener('pointercancel', release);
+  scene.addEventListener('lostpointercapture', release);
+  scene.addEventListener('pointerleave', e => {
+    release(e);
+    tiltX.target = 0; tiltY.target = 0;   // settle back to square
+  });
+
+  scene.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    spin.target += (e.key === 'ArrowRight' ? -STEP : STEP);
+    e.preventDefault();
+  });
+
+  let ringDrawn = null, tiltDrawn = null, originDrawn = null;
+  let prev = performance.now();
+
+  (function frame(now){
+    const dt = Math.min(Math.max((now - prev) / 1000, 0.0001), 0.05);
+    prev = now;
+
+    advance(spin, dt); advance(rad, dt); advance(tiltX, dt); advance(tiltY, dt);
+
+    const t = 'rotateX(' + tiltX.v.toFixed(3) + 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg)';
+    if (t !== tiltDrawn){ tiltEl.style.transform = t; tiltDrawn = t; }
+
+    const r = 'rotateY(' + spin.v.toFixed(3) + 'deg)';
+    if (r !== ringDrawn){ ring.style.transform = r; ringDrawn = r; }
+
+    // the slots only need rewriting while the radius is still in motion
+    const origin = '50% 50% ' + rad.v.toFixed(1) + 'px';
+    if (origin !== originDrawn){
+      const z = 'translateZ(' + (-rad.v).toFixed(1) + 'px) ';
+      for (let i = 0; i < N; i++){
+        slots[i].style.transformOrigin = origin;
+        slots[i].style.transform = z + 'rotateY(' + (-i * STEP) + 'deg)';
+      }
+      originDrawn = origin;
+    }
+
+    requestAnimationFrame(frame);
+  })(performance.now());
+})();
+</script>

@@ -27,3 +27,6 @@ assets/3d/frames/
 # Source models and clips fed to the rigs. Large binaries that are inputs,
 # not outputs; the rendered results in assets/3d/ are what gets tracked.
 incoming/
+
+# Blender auto-backups (duplicates of the .blend next to them)
+*.blend1
