@@ -1,0 +1,795 @@
+<title>MY ORBS - new clips only</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100,400;100,500;100,700;100,900;125,900&display=swap">
+
+<style>
+  :root{
+    /* Pure white, sampled off dirtverse's live hero rather than read out of
+       their stylesheet — the #f2f2ef token in there never paints the page.
+       Like theirs, this page stays in one light world and carries no dark
+       theme: the orbs are lit for a bright room. */
+    --paper:  #FFFFFF;
+    --ink:    #0A0A0A;
+    --pill:   #F0F0F0;
+    --pill-in:#48484A;
+    /* the carousel, in one place */
+    --r: 1150px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  html,body{ height:100% }
+  body{ background:var(--paper); color:var(--ink);
+        font-family:Archivo,system-ui,sans-serif; overflow:hidden }
+
+  /* ---------- chrome ---------- */
+  .bar{
+    position:fixed; inset:0 0 auto 0; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 20px; pointer-events:none;
+  }
+  .bar > *{ pointer-events:auto }
+  .nav{ display:flex; gap:9px }
+  .nav a,.contact{ font-size:14px; font-weight:500; text-decoration:none;
+                   padding:7px 17px; border-radius:999px; white-space:nowrap }
+  .nav a{ background:var(--pill); color:var(--pill-in) }
+  .nav a:hover{ color:var(--ink) }
+  .contact{ background:var(--ink); color:var(--paper) }
+  /* true page centre, not the gap between the unequal nav and contact pills */
+  .brand{ font-weight:900; font-stretch:125%; font-size:19px; letter-spacing:-.04em; white-space:nowrap;
+          position:absolute; left:50%; transform:translateX(-50%) }
+  @media (max-width:820px){ .brand{ position:static; transform:none } }
+  .nav a:focus-visible,.contact:focus-visible,.scene:focus-visible{
+    outline:2px solid var(--ink); outline-offset:3px }
+
+  /* ---------- the carousel ---------- */
+  .scene{
+    position:fixed; inset:0;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+    cursor:grab; overflow:hidden;
+  }
+  .scene[data-drag="1"]{ cursor:grabbing }
+  /* No shared 3D context on purpose. Each slot carries its own perspective()
+     in JS, so Chrome never depth-sorts the orbs by slicing them along each
+     other's planes — that slicing is what cut orbs clean down the middle. */
+  .tilt{ position:absolute; inset:0 }
+  .ring{ position:absolute; left:50%; top:47%; width:0; height:0 }
+
+  /* each slot: JS writes the whole projection, pivoting on the ring centre */
+  .slot{
+    position:absolute; left:0; top:0;
+    transform-origin:0 0;
+    will-change:transform;
+    opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
+  }
+  .slot.in{ opacity:1 }
+  .slot__f{ position:relative; animation:float var(--dur) var(--delay) ease-in-out infinite }
+  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-10px) } }
+
+
+  /* A video face sizes like an image face. max-width matters: a host
+     stylesheet's video{max-width:100%} resolves against the zero-width .ring
+     and collapses it — the same trap that rules out <img> here. */
+  .orbvid{ max-width:none; object-fit:contain; background:none }
+
+  .orbimg{
+    width:520px; height:520px;
+    margin:-260px 0 0 -260px;          /* centre the orb on its slot origin */
+    background-size:contain; background-repeat:no-repeat; background-position:center;
+    display:block; pointer-events:none; position:relative;
+    backface-visibility:hidden;        /* far half of the ring drops out cleanly */
+  }
+
+
+  .foot{
+    position:fixed; left:0; right:0; bottom:18px; z-index:10;
+    display:flex; justify-content:center; align-items:center; gap:14px;
+    font-size:11px; font-weight:500; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--pill-in); pointer-events:none;
+  }
+  @media (max-width:820px){
+    :root{ --r:760px }
+    .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
+  }
+  @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
+  @media (prefers-reduced-motion: reduce){
+    .slot__f{ animation:none }
+    .slot{ transition:none }
+  }
+
+  /* ---------- opening: the name grows dirt, blooms, lets go ---------- */
+  .intro{
+    position:fixed; inset:0; z-index:20; background:var(--paper);
+    display:grid; place-items:center;
+    transition:opacity .6s cubic-bezier(.4,0,.2,1);
+  }
+  .intro.out{ opacity:0; pointer-events:none }
+  .intro svg{ width:min(86vw, 1100px); height:auto; overflow:visible; opacity:0 }
+  .intro.go svg{ opacity:1 }
+  .intro canvas{ position:absolute; inset:0; width:100%; height:100%; display:none }
+  .intro.gl canvas{ display:block }
+  .intro.gl svg{ display:none }
+  .bar{ transition:opacity .6s .15s }
+  body.intro-on .bar{ opacity:0 }
+</style>
+
+
+<div class="intro" id="intro" aria-hidden="true">
+  <canvas></canvas>
+  <svg viewBox="0 0 1200 300">
+    <defs>
+      <!-- primitiveUnits default to user space, so every radius below is in
+           viewBox units and the growth scales with the name, not the screen -->
+      <filter id="dirt" x="-25%" y="-100%" width="150%" height="300%" color-interpolation-filters="sRGB">
+        <!-- grain: fractal noise turned into a 0..1 alpha field, contrast
+             pushed so each lobe commits to growing or not -->
+        <feTurbulence id="dirt-noise" type="fractalNoise" baseFrequency="0.011" numOctaves="5" seed="11" result="noise"/>
+        <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.6 0 0 0 -0.8" result="grain"/>
+        <!-- reach: nearness to the letters, falling off softly and far -->
+        <feGaussianBlur in="SourceAlpha" stdDeviation="34" result="reach"/>
+        <!-- growth field = reach, carried much further wherever the grain is
+             high and barely at all where it is low, which is what breaks the
+             outline into lobes. The product keeps it at zero far from the
+             name, so no stray islands. -->
+        <feComposite in="reach" in2="grain" operator="arithmetic" k1="2.6" k2="0.15" k3="0" k4="0" result="field"/>
+        <!-- three cuts of the field at levels JS lowers as the growth spreads:
+             mass (outer edge), mid, core. Each sits inside the one before. -->
+        <feColorMatrix id="dirt-mass" in="field" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 30 -48" result="mass"/>
+        <feColorMatrix id="dirt-mid"  in="field" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 30 -86" result="mid"/>
+        <feColorMatrix id="dirt-core" in="field" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 30 -154" result="core"/>
+        <!-- outer lobes, lit pink -->
+        <feComposite in="mass" in2="mid" operator="out" result="outer"/>
+        <feFlood flood-color="#F6B3FF"/>
+        <feComposite in2="outer" operator="in" result="pinkLobes"/>
+        <!-- violet ring between the lobes and the dark core -->
+        <feComposite in="mid" in2="core" operator="out" result="ring"/>
+        <feFlood flood-color="#8C62FF"/>
+        <feComposite in2="ring" operator="in" result="violetRing"/>
+        <feMerge result="lit">
+          <feMergeNode in="pinkLobes"/>
+          <feMergeNode in="violetRing"/>
+        </feMerge>
+        <feGaussianBlur in="lit" stdDeviation="3.5" result="litSoft"/>
+        <!-- violet lip on the very edge of the mass -->
+        <feMorphology in="mass" operator="erode" radius="2" result="massIn"/>
+        <feComposite in="mass" in2="massIn" operator="out" result="lip"/>
+        <feFlood flood-color="#5B3BE8"/>
+        <feComposite in2="lip" operator="in" result="edge"/>
+        <!-- the dark body the growth comes out of -->
+        <feFlood flood-color="#08060C"/>
+        <feComposite in2="core" operator="in" result="body"/>
+        <!-- glowing spores inside the body, where the grain runs hottest -->
+        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 8 -6.4" result="hot"/>
+        <feComposite in="hot" in2="core" operator="in" result="hotIn"/>
+        <feGaussianBlur in="hotIn" stdDeviation="6" result="hotSoft"/>
+        <feFlood id="dirt-spore" flood-color="#FF9CF2" flood-opacity="0"/>
+        <feComposite in2="hotSoft" operator="in" result="spores"/>
+        <feMerge>
+          <feMergeNode in="litSoft"/>
+          <feMergeNode in="edge"/>
+          <feMergeNode in="body"/>
+          <feMergeNode in="spores"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+    <text id="intro-name" x="600" y="200" text-anchor="middle" font-size="160" fill="#0A0A0A"
+          font-family="Archivo, system-ui, sans-serif" font-weight="900" font-stretch="expanded" textLength="1040" lengthAdjust="spacingAndGlyphs">Ejay Adamo</text>
+  </svg>
+</div>
+
+<script>
+// Opening. dirtverse plays a pre-rendered 2.5s clip of their wordmark growing
+// glowing mould and pulling back clean. This draws the same beat live: a
+// Gray-Scott reaction-diffusion simulation on the GPU, seeded from the letters
+// and fenced in by a noisy growth field that swells and then pulls back. That
+// fence is what gives the lobes; the simulation inside it gives the branching
+// coral detail. Without WebGL2 float targets it falls back to the SVG filter.
+(() => {
+  const intro = document.getElementById('intro');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches){ intro.remove(); return; }
+  window.introPending = true;
+  document.body.classList.add('intro-on');
+
+  const NAME = 'Ejay Adamo';
+  // ?introAt=1200 runs the intro to that moment and freezes there, for tuning
+  const qs = new URLSearchParams(location.search);
+  const FREEZE = qs.has('introAt') ? +qs.get('introAt') : null;
+
+  // Beats, in ms, measured off their clip by counting grown pixels per frame:
+  // growth starts at 0.10s, is half grown by 0.50s and 90% by 0.92s, full by
+  // 1.2s, holds to 1.75s, then retracts more than twice as fast as it grew
+  // (64% at 2.0s, clean by 2.22s). So the ending is not the opening reversed.
+  const START = 100, PEAK = 1200, HOLD = 1780, CLEAN = 2320, END = 2500;
+  const smooth = t => t * t * (3 - 2 * t);
+  const amount = ms =>
+    ms < START ? 0 :
+    ms < PEAK  ? Math.sin((ms - START) / (PEAK - START) * Math.PI / 2) :   // fast out, settling in
+    ms < HOLD  ? 1 :
+    ms < CLEAN ? 1 - smooth((ms - HOLD) / (CLEAN - HOLD)) : 0;
+  // growth-field level. At rest it sits above anything the field reaches.
+  // Geometric, not linear: equal steps in level would rush the start.
+  const REST = 1.6, FULL = 0.09;
+  const levelAt = ms => REST * Math.pow(FULL / REST, amount(ms));
+
+  let finished = false;
+  const finish = () => {
+    if (finished || FREEZE !== null) return;
+    finished = true;
+    intro.classList.add('out');
+    document.body.classList.remove('intro-on');
+    window.introPending = false;
+    dispatchEvent(new Event('introdone'));
+    setTimeout(() => intro.remove(), 700);
+  };
+
+  // ---- the name, laid out once in CSS px and drawn at any scale ----------
+  const setFont = (ctx, px) => {
+    ctx.font = '900 ' + px + 'px Archivo';   // stretch set on its own: in the
+    ctx.fontStretch = 'expanded';            // shorthand it voids the whole font
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+  };
+  const layout = () => {
+    const ctx = document.createElement('canvas').getContext('2d');
+    setFont(ctx, 100);
+    const m = ctx.measureText(NAME);
+    const k = Math.min(innerWidth * 0.86, 1100) / m.width;
+    const size = 100 * k;
+    const asc = m.actualBoundingBoxAscent * k, desc = m.actualBoundingBoxDescent * k;
+    return { size, x: innerWidth / 2, y: innerHeight / 2 + (asc - desc) / 2 };
+  };
+  const drawName = (ctx, L, s) => {
+    setFont(ctx, L.size * s);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(NAME, L.x * s, L.y * s);
+  };
+
+  // three box passes each way: a cheap, close gaussian on a float field
+  const blur = (a, w, h, r) => {
+    const t = new Float32Array(a.length), k = 1 / (2 * r + 1);
+    const pass = (src, dst, horiz) => {
+      const n = horiz ? w : h, lines = horiz ? h : w;
+      for (let j = 0; j < lines; j++){
+        const at = i => {
+          i = i < 0 ? 0 : i >= n ? n - 1 : i;
+          return horiz ? src[j * w + i] : src[i * w + j];
+        };
+        let acc = 0;
+        for (let i = -r; i <= r; i++) acc += at(i);
+        for (let i = 0; i < n; i++){
+          dst[horiz ? j * w + i : i * w + j] = acc * k;
+          acc += at(i + r + 1) - at(i - r);
+        }
+      }
+    };
+    for (let p = 0; p < 3; p++){ pass(a, t, true); pass(t, a, false); }
+    return a;
+  };
+
+  const NOISE = `
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vn(vec2 p){
+      vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+      return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + 1.), f.x), f.y);
+    }
+    float fbm(vec2 p){
+      float s = 0., a = .5;
+      for (int i = 0; i < 5; i++){ s += a * vn(p); p = p * 2.03 + 17.; a *= .5; }
+      return s;
+    }`;
+
+  const VERT = `#version 300 es
+    in vec2 p; uniform float flip; out vec2 uv;
+    void main(){ uv = p * .5 + .5; uv.y = mix(uv.y, 1. - uv.y, flip); gl_Position = vec4(p, 0, 1); }`;
+
+  // one Gray-Scott step. State: r = A, g = B, b = allowed, a = growth field
+  const SIM = `#version 300 es
+    precision highp float;
+    in vec2 uv; out vec4 o;
+    uniform sampler2D S, M;          // state; masks (r reach, g letters)
+    uniform vec2 px;
+    uniform float level, t, seed;
+    ${NOISE}
+    void main(){
+      vec2 c  = texture(S, uv).rg;
+      vec2 lap = -c
+        + .2  * (texture(S, uv + vec2(px.x, 0)).rg + texture(S, uv - vec2(px.x, 0)).rg
+               + texture(S, uv + vec2(0, px.y)).rg + texture(S, uv - vec2(0, px.y)).rg)
+        + .05 * (texture(S, uv + px).rg + texture(S, uv - px).rg
+               + texture(S, uv + vec2(px.x, -px.y)).rg + texture(S, uv + vec2(-px.x, px.y)).rg);
+      float A = c.r, B = c.g, r = A * B * B;
+      const float F = .0545, K = .062;          // the coral regime: branching fingers
+      A += lap.r - r + F * (1. - A);
+      B += .5 * lap.g + r - (K + F) * B;
+
+      vec4 m = texture(M, uv);
+      vec2 cell = uv / px;
+      // grain carries the fence further in some places than others: lobes
+      float grain = clamp(2.6 * fbm(cell / 36. + vec2(t * .00012, -t * .00009)) - .8, 0., 1.);
+      float field = m.r * (.15 + 2.6 * grain);
+      float allowed = smoothstep(level * .85, level * 1.15, field);
+      // sparse spores inside the fence, so the pattern fills it at bloom speed
+      float spore = step(.9975, h(floor(cell) + seed)) * allowed;
+      B = max(B * allowed, max(spore * .5, m.g * .5));   // the letters never stop feeding it
+      A = mix(1., A, allowed);
+      o = vec4(clamp(A, 0., 1.), clamp(B, 0., 1.), allowed, field);
+    }`;
+
+  const SHOW = `#version 300 es
+    precision highp float;
+    in vec2 uv; out vec4 o;
+    uniform sampler2D S, T;          // state (linear); the crisp name at screen res
+    uniform vec2 px;
+    uniform float level, t;
+    ${NOISE}
+    void main(){
+      vec4 c = texture(S, uv);
+      float B = c.g, allowed = c.b, field = c.a;
+      float bb = B, halo = allowed;
+      for (int i = 0; i < 8; i++){
+        vec2 d = vec2(cos(float(i) * .7854), sin(float(i) * .7854));
+        bb   += texture(S, uv + d * px * 2.5).g;
+        halo += texture(S, uv + d * px * 9.).b;
+      }
+      bb /= 9.; halo /= 9.;
+
+      const vec3 white = vec3(1), pink = vec3(.965, .70, 1.), lav = vec3(.80, .72, 1.),
+                 violet = vec3(.42, .28, .95), dark = vec3(.035, .02, .055);
+      float grown = smoothstep(.05, .35, allowed);
+      vec3 col = mix(pink, lav, smoothstep(.05, .2, bb));
+      col = mix(col, violet, smoothstep(.16, .28, B));
+      col = mix(col, dark,   smoothstep(.26, .36, B));
+      float core = smoothstep(level * 2.2, level * 3.6, field);
+      col = mix(col, dark, core * .9);
+      float spores = core * smoothstep(.7, .88, fbm(uv / px / 14. + t * .0004));
+      col = mix(col, pink, spores * .85);
+      float vein = core * (1. - smoothstep(0., .02, abs(B - .22)));
+      col = mix(col, white, vein * .45);
+
+      vec3 outc = mix(white, col, grown);
+      outc = mix(outc, mix(lav, violet, .35), (1. - grown) * smoothstep(0., .6, halo) * .35);
+      float name = texture(T, uv).a;
+      o = vec4(mix(outc, vec3(.04), name), 1);
+    }`;
+
+  const startGL = L => {
+    const canvas = intro.querySelector('canvas');
+    const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false });
+    if (!gl || !gl.getExtension('EXT_color_buffer_float')) return false;
+    // A software rasteriser (no GPU, or the browser's hardware acceleration
+    // off) crawls through the simulation and locks the tab; the SVG bloom is
+    // far lighter. ?introGPU=1 forces this path anyway, for testing.
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : '';
+    if (/SwiftShader|Basic Render|llvmpipe|softpipe|Software/i.test(renderer) && !qs.has('introGPU')) return false;
+
+    const vw = innerWidth, vh = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
+    const CELL = 2.2;                                   // CSS px per simulation cell
+    const sw = Math.ceil(vw / CELL), sh = Math.ceil(vh / CELL);
+
+    // masks at simulation scale. Rows stay top-down in every texture, and
+    // only the on-screen pass flips, so all of them line up with each other.
+    const mcan = document.createElement('canvas'); mcan.width = sw; mcan.height = sh;
+    const mctx = mcan.getContext('2d', { willReadFrequently: true });
+    drawName(mctx, L, 1 / CELL);
+    const pix = mctx.getImageData(0, 0, sw, sh).data;
+    const letters = new Float32Array(sw * sh);
+    for (let i = 0; i < letters.length; i++) letters[i] = pix[i * 4 + 3] / 255;
+    const reach = blur(letters.slice(), sw, sh, Math.max(1, Math.round(0.2125 * L.size / CELL)));
+    const maskData = new Float32Array(sw * sh * 4), startData = new Float32Array(sw * sh * 4);
+    for (let i = 0; i < letters.length; i++){
+      maskData[i * 4]      = reach[i];
+      maskData[i * 4 + 1]  = letters[i];
+      startData[i * 4]     = 1;
+      startData[i * 4 + 1] = letters[i] * .5;
+    }
+
+    const floatTex = data => {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, sw, sh, 0, gl.RGBA, gl.FLOAT, data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return t;
+    };
+    const mask = floatTex(maskData);
+    const state = [floatTex(startData), floatTex(startData)];
+    const fbo = state.map(t => {
+      const f = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      return f;
+    });
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return false;
+
+    // the crisp name at screen resolution, drawn over everything
+    const tcan = document.createElement('canvas'); tcan.width = canvas.width; tcan.height = canvas.height;
+    drawName(tcan.getContext('2d'), L, dpr);
+    const textTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, textTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tcan);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const linear = gl.createSampler();              // smooth upscale, display only
+    gl.samplerParameteri(linear, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.samplerParameteri(linear, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.samplerParameteri(linear, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.samplerParameteri(linear, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const program = fs => {
+      const p = gl.createProgram();
+      [[gl.VERTEX_SHADER, VERT], [gl.FRAGMENT_SHADER, fs]].forEach(([type, src]) => {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src); gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+        gl.attachShader(p, s);
+      });
+      gl.bindAttribLocation(p, 0, 'p');
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      const u = {};
+      for (let i = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i--; ){
+        const name = gl.getActiveUniform(p, i).name;
+        u[name] = gl.getUniformLocation(p, name);
+      }
+      return { p, u };
+    };
+    const sim = program(SIM), show = program(SHOW);
+
+    gl.bindVertexArray(gl.createVertexArray());
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    gl.useProgram(sim.p);
+    gl.uniform1i(sim.u.S, 0); gl.uniform1i(sim.u.M, 1);
+    gl.uniform2f(sim.u.px, 1 / sw, 1 / sh); gl.uniform1f(sim.u.flip, 0);
+    gl.useProgram(show.p);
+    gl.uniform1i(show.u.S, 0); gl.uniform1i(show.u.T, 1);
+    gl.uniform2f(show.u.px, 1 / sw, 1 / sh); gl.uniform1f(show.u.flip, 1);
+
+    // simulation time runs on steps, not frames: a dropped frame slows the
+    // bloom a touch instead of skipping it
+    const RATE = 0.9;                                    // steps per ms of intro
+    let steps = 0;
+    const simTo = ms => {
+      const want = Math.floor(ms * RATE);
+      gl.useProgram(sim.p);
+      gl.viewport(0, 0, sw, sh);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, mask);
+      gl.activeTexture(gl.TEXTURE0);
+      for (let budget = FREEZE === null ? 64 : Infinity; steps < want && budget > 0; budget--){
+        const t = steps / RATE;
+        gl.uniform1f(sim.u.level, levelAt(t));
+        gl.uniform1f(sim.u.t, t);
+        gl.uniform1f(sim.u.seed, (steps * 7.13) % 991);
+        gl.bindTexture(gl.TEXTURE_2D, state[0]);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[1]);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        state.reverse(); fbo.reverse();                  // newest is always [0]
+        steps++;
+      }
+    };
+    const draw = () => {
+      const t = steps / RATE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(show.p);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textTex);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, state[0]);
+      gl.bindSampler(0, linear);
+      gl.uniform1f(show.u.level, levelAt(t));
+      gl.uniform1f(show.u.t, t);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindSampler(0, null);
+    };
+
+    intro.classList.add('gl');
+    if (FREEZE !== null){ simTo(FREEZE); draw(); return true; }
+    const t0 = performance.now();
+    (function frame(now){
+      simTo(Math.min(now - t0, END));
+      draw();
+      if (steps >= Math.floor(END * RATE)) finish(); else requestAnimationFrame(frame);
+    })(t0);
+    return true;
+  };
+
+  // fallback: the lighter SVG-filter bloom, same beats
+  const startSVG = () => {
+    const $ = id => document.getElementById(id);
+    const name = $('intro-name'), noise = $('dirt-noise'), spore = $('dirt-spore');
+    const mass = $('dirt-mass'), mid = $('dirt-mid'), core = $('dirt-core');
+    const cut = level => '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 30 ' + (-30 * level).toFixed(3);
+    name.setAttribute('filter', 'url(#dirt)');
+    intro.classList.add('go');
+    const t0 = performance.now();
+    (function frame(now){
+      const ms = now - t0, level = levelAt(ms);
+      mass.setAttribute('values', cut(level));
+      mid.setAttribute('values', cut(level * 1.8));
+      core.setAttribute('values', cut(level * 3.2));
+      spore.setAttribute('flood-opacity', (0.85 * amount(ms)).toFixed(3));
+      noise.setAttribute('baseFrequency', (0.011 + 0.003 * ms / END).toFixed(4));
+      if (ms < END) requestAnimationFrame(frame);
+      else { name.removeAttribute('filter'); finish(); }
+    })(t0);
+  };
+
+  // wait for the expanded Archivo so the name never swaps font mid-bloom
+  Promise.race([document.fonts.load('900 expanded 100px Archivo'), new Promise(r => setTimeout(r, 1500))])
+    .then(() => requestAnimationFrame(() => {
+      let ok = false;
+      try { ok = startGL(layout()); } catch (e) { console.warn('intro: GPU path failed, using SVG', e); }
+      if (!ok) startSVG();
+    }));
+})();
+</script>
+
+<header class="bar">
+  <nav class="nav">
+    <a href="#" onclick="return false">About</a>
+    <a href="#" onclick="return false">Work</a>
+    <a href="#" onclick="return false">Journal</a>
+  </nav>
+  <span class="brand">Ejay Adamo</span>
+  <a class="contact" href="#" onclick="return false">Contact</a>
+</header>
+
+<div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys.">
+  <div class="ring" id="ring" style="--step:36deg">
+    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs"></video></div></div>
+    <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs"></video></div></div>
+    <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark"></video></div></div>
+    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium8.webm" poster="assets/3d/_ref/premium8.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Gold chrome blobs"></video></div></div>
+    <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces"></video></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs"></video></div></div>
+    <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs"></video></div></div>
+    <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark"></video></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium8.webm" poster="assets/3d/_ref/premium8.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Gold chrome blobs"></video></div></div>
+    <div class="slot" style="--i:9"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces"></video></div></div>
+  </div>
+</div>
+
+
+<div class="foot">
+  <span>Drag to slide</span>
+</div>
+
+<script>
+(() => {
+  const scene = document.getElementById('scene');
+  const slots = [...document.querySelectorAll('.slot')];
+  const N     = slots.length;
+
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const ring = document.getElementById('ring');
+
+  // Chrome declines the autoplay attribute often enough that a video orb just
+  // sits on its poster frame. Ask directly, and retry on first interaction.
+  // Getting a video orb to actually run turns out to need belt and braces.
+  // The autoplay attribute can be declined, a play() call can be rejected
+  // before any data has arrived, and playbackRate is reset by some loads. So:
+  // ask on every event that means "more is ready", and again on first input.
+  const FACE_RATE = 1;            // full rate: the slow revolution is baked into the frames now
+  const faces = [...document.querySelectorAll('video.orbvid')];
+  const startFaces = () => faces.forEach(v => {
+    if (v.dataset.culled === '1') return;   // far side of the ring: left paused on purpose
+    v.playbackRate = FACE_RATE;
+    const p = v.play();
+    if (p) p.catch(() => {});
+  });
+  faces.forEach(v => {
+    ['loadeddata', 'canplay', 'canplaythrough', 'stalled', 'suspend'].forEach(
+      e => v.addEventListener(e, startFaces));
+  });
+  startFaces();
+  addEventListener('pointerdown', startFaces);
+  addEventListener('keydown', startFaces);
+  document.addEventListener('visibilitychange', startFaces);
+
+  // ?debug=1 turns the footer into a live readout of what the video is doing
+  if (new URLSearchParams(location.search).get('debug') === '1'){
+    const out = document.querySelector('.foot span');
+    setInterval(() => {
+      out.textContent = faces.map(v =>
+        (v.paused ? 'PAUSED' : 'playing') +
+        ' ready:' + v.readyState +
+        ' t:' + v.currentTime.toFixed(1) +
+        ' rate:' + v.playbackRate +
+        ' size:' + v.videoWidth + 'x' + v.videoHeight +
+        (v.error ? ' ERR:' + v.error.code : '')
+      ).join(' | ') || 'no video faces';
+    }, 250);
+  }
+
+  const STEP = 360 / N;
+
+  // ── the dirtverse motion model ───────────────────────────────────────
+  // Every constant below is lifted from their compiled Framer component, not
+  // eyeballed. Three independent layers stack: a cursor tilt on the outside,
+  // the drag spin in the middle, and a per-orb bob in CSS underneath.
+  const SENS        = 0.5;    // rotation = rot0 - dx * SENS
+  const ENTRY_DELAY = 0.25;   // seconds; their own site sits at 2.78, being below the fold
+  const ARM_AFTER   = 1200;   // ms after the entrance before a drag is accepted
+  const TILT_X      = 5;      // deg of rotateX, driven by cursor Y
+  const TILT_Y      = 3;      // deg of rotateY, driven by cursor X
+  const BOB_BASE    = 2.8;    // s, plus 0.08 per orb
+  const BOB_STAGGER = 0.08;
+
+  const coarse = matchMedia('(pointer: coarse)').matches;
+
+  // framer-motion springs run at mass 1, so a = -k(x - target) - c*v.
+  // All three are overdamped: 24 against a critical 2*sqrt(35) = 11.8. That
+  // ratio, not the stiffness, is what makes the ring feel heavy and slow.
+  const SPIN_SPRING   = coarse ? { k: 28, c: 22 } : { k: 35, c: 24 };
+  const RADIUS_SPRING = coarse ? { k: 24, c: 18 } : { k: 30, c: 20 };
+  const TILT_SPRING   = { k: 50, c: 18 };
+
+  // the tilt rides outside the spin, so cursor parallax never fights the drag
+  const tiltEl = document.createElement('div');
+  tiltEl.className = 'tilt';
+  ring.parentNode.insertBefore(tiltEl, ring);
+  tiltEl.appendChild(ring);
+
+  let R = 1150;
+  const readGeometry = () => {
+    const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--r'));
+    if (r) R = r;
+  };
+  readGeometry();
+
+  const mk = (v, cfg) => ({ v, target: v, vel: 0, k: cfg.k, c: cfg.c });
+  const advance = (s, dt) => {
+    let t = dt;
+    while (t > 0){                        // substep, so a dropped frame can't
+      const h = Math.min(t, 1 / 240);     // blow the integrator up
+      s.vel += (-s.k * (s.v - s.target) - s.c * s.vel) * h;
+      s.v   += s.vel * h;
+      t -= h;
+    }
+  };
+
+  // entrance: the ring unspins 90deg while the radius collapses from 1.8x
+  const spin  = mk(calm ? 180 : 270, SPIN_SPRING);
+  const rad   = mk(calm ? R : R * 1.8, RADIUS_SPRING);
+  const tiltX = mk(0, TILT_SPRING);
+  const tiltY = mk(0, TILT_SPRING);
+
+  // mismatched periods, not just staggered delays: the orbs drift out of phase
+  // and never resync, which is the whole trick behind the organic feel
+  slots.forEach((s, i) => {
+    const f = s.querySelector('.slot__f');
+    f.style.setProperty('--dur',   (BOB_BASE + i * BOB_STAGGER).toFixed(2) + 's');
+    f.style.setProperty('--delay', (calm ? 0 : ENTRY_DELAY + 1.2 + i * BOB_STAGGER).toFixed(2) + 's');
+  });
+
+  let armed = calm;
+  if (calm) slots.forEach(s => s.classList.add('in'));
+  else {
+    const enter = () => {
+      setTimeout(() => {
+        spin.target = 180;
+        rad.target  = R;
+        slots.forEach(s => s.classList.add('in'));
+      }, ENTRY_DELAY * 1000);
+      setTimeout(() => { armed = true; }, ENTRY_DELAY * 1000 + ARM_AFTER);
+    };
+    // the ring waits behind the opening name, then makes its entrance
+    if (window.introPending) addEventListener('introdone', enter, { once: true });
+    else enter();
+  }
+
+  // --- drag: no inertia, no snap ---------------------------------------
+  // Their release handler genuinely does nothing. What reads as momentum is
+  // only the spring still catching up to where your finger left the target.
+  let dragging = false, x0 = 0, rot0 = 0;
+
+  scene.addEventListener('pointerdown', e => {
+    if (!armed || e.target.closest('.bar') || e.target.closest('.foot')) return;
+    dragging = true; x0 = e.clientX; rot0 = spin.target;
+    scene.setPointerCapture(e.pointerId);
+    scene.dataset.drag = '1';
+  });
+
+  let rect = null, tiltRaf = 0;
+  const dropRect = () => { rect = null; };
+  addEventListener('scroll', dropRect, { passive: true });
+  addEventListener('resize', () => {
+    dropRect(); readGeometry();
+    if (!dragging) rad.target = R;
+  }, { passive: true });
+
+  scene.addEventListener('pointermove', e => {
+    if (dragging){ spin.target = rot0 - (e.clientX - x0) * SENS; return; }
+    if (calm || coarse || !armed || tiltRaf) return;
+    const px = e.clientX, py = e.clientY;
+    tiltRaf = requestAnimationFrame(() => {   // one cached rect read per frame
+      tiltRaf = 0;
+      if (!rect) rect = scene.getBoundingClientRect();
+      tiltX.target = -(((py - rect.top)  / rect.height) * 2 - 1) * TILT_X;
+      tiltY.target = -(((px - rect.left) / rect.width)  * 2 - 1) * TILT_Y;
+    });
+  });
+
+  const release = e => {
+    if (!dragging) return;
+    dragging = false; scene.dataset.drag = '0';
+    if (e && e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
+      scene.releasePointerCapture(e.pointerId);
+  };
+  scene.addEventListener('pointerup', release);
+  scene.addEventListener('pointercancel', release);
+  scene.addEventListener('lostpointercapture', release);
+  scene.addEventListener('pointerleave', e => {
+    release(e);
+    tiltX.target = 0; tiltY.target = 0;   // settle back to square
+  });
+
+  scene.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    spin.target += (e.key === 'ArrowRight' ? -STEP : STEP);
+    e.preventDefault();
+  });
+
+  // The camera sits inside the ring, so a slot swinging round past the side
+  // comes up beside the viewer and projects enormous, and its opaque white
+  // square can land over the orbs in front. A slot is hidden once its box is
+  // fully off screen (or behind the camera), and its video paused.
+  const PERSP = 850;
+  let faceHalf = faces[0] ? faces[0].offsetWidth / 2 : 260;
+  addEventListener('resize', () => { if (faces[0]) faceHalf = faces[0].offsetWidth / 2; }, { passive: true });
+  const shown = slots.map(() => true);
+  const drawn = slots.map(() => '');
+  let prev = performance.now();
+
+  (function frame(now){
+    const dt = Math.min(Math.max((now - prev) / 1000, 0.0001), 0.05);
+    prev = now;
+
+    advance(spin, dt); advance(rad, dt); advance(tiltX, dt); advance(tiltY, dt);
+
+    // Same maths the nested version did — perspective on the ring centre,
+    // tilt pivoting on the screen centre (3vh below it), then spin, then out
+    // to the rim — composed per slot instead of by a 3D context.
+    const dy = (innerHeight * 0.03).toFixed(1);
+    const head = 'perspective(' + PERSP + 'px) translateY(' + dy + 'px) rotateX(' + tiltX.v.toFixed(3) +
+                 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg) translateY(-' + dy + 'px) rotateY(';
+    const tail = 'deg) translateZ(' + (-rad.v).toFixed(1) + 'px)';
+    const edge = innerWidth / 2 + 40;          // slack for the cursor tilt
+
+    for (let i = 0; i < N; i++){
+      const deg = spin.v - i * STEP;
+      const a = deg * Math.PI / 180;
+      const d = PERSP + rad.v * Math.cos(a);   // distance in front of the camera
+      const on = d > 60 && (Math.abs(Math.sin(a)) * rad.v - faceHalf) * PERSP / d < edge;
+      if (on !== shown[i]){
+        shown[i] = on;
+        slots[i].style.visibility = on ? '' : 'hidden';
+        const v = faces[i];
+        if (v){
+          v.dataset.culled = on ? '0' : '1';   // hidden videos pause: ten 1080p60 decodes is too many
+          if (on) v.play().catch(() => {}); else v.pause();
+        }
+      }
+      if (!on) continue;
+      const tf = head + deg.toFixed(3) + tail;
+      if (tf !== drawn[i]){
+        slots[i].style.transform = tf;
+        slots[i].style.zIndex = 5000 - Math.round(d);   // nearest on top
+        drawn[i] = tf;
+      }
+    }
+
+    requestAnimationFrame(frame);
+  })(performance.now());
+})();
+</script>
