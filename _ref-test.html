@@ -236,12 +236,12 @@
     <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs"></video></div></div>
     <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs"></video></div></div>
     <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark"></video></div></div>
-    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium8.webm" poster="assets/3d/_ref/premium8.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Gold chrome blobs"></video></div></div>
+    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs"></video></div></div>
     <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces"></video></div></div>
     <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs"></video></div></div>
     <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs"></video></div></div>
     <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark"></video></div></div>
-    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium8.webm" poster="assets/3d/_ref/premium8.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Gold chrome blobs"></video></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs"></video></div></div>
     <div class="slot" style="--i:9"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces"></video></div></div>
   </div>
 </div>
@@ -437,6 +437,9 @@
   addEventListener('resize', () => { if (faces[0]) faceHalf = faces[0].offsetWidth / 2; }, { passive: true });
   const shown = slots.map(() => true);
   const drawn = slots.map(() => '');
+  const depth = new Float64Array(N);
+  const order = slots.map((_, i) => i);
+  const zDrawn = new Int8Array(N).fill(-1);
   let prev = performance.now();
 
   (function frame(now){
@@ -458,6 +461,7 @@
       const deg = spin.v - i * STEP;
       const a = deg * Math.PI / 180;
       const d = PERSP + rad.v * Math.cos(a);   // distance in front of the camera
+      depth[i] = d;
       const on = d > 60 && (Math.abs(Math.sin(a)) * rad.v - faceHalf) * PERSP / d < edge;
       if (on !== shown[i]){
         shown[i] = on;
@@ -472,9 +476,17 @@
       const tf = head + deg.toFixed(3) + tail;
       if (tf !== drawn[i]){
         slots[i].style.transform = tf;
-        slots[i].style.zIndex = 5000 - Math.round(d);   // nearest on top
         drawn[i] = tf;
       }
+    }
+
+    // Stacking, nearest on top, written only when the order actually changes.
+    // A fresh z-index per moving frame re-stacks and repaints the whole ring;
+    // the order itself only flips when two orbs pass each other.
+    order.sort((p, q) => depth[q] - depth[p]);   // farthest first
+    for (let k = 0; k < N; k++){
+      const i = order[k];
+      if (zDrawn[i] !== k){ slots[i].style.zIndex = k; zDrawn[i] = k; }
     }
 
     requestAnimationFrame(frame);
