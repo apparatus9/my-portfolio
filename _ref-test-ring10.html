@@ -14,7 +14,7 @@
     --pill:   #F0F0F0;
     --pill-in:#48484A;
     /* the carousel, in one place */
-    --r: 1150px;
+    --r: 800px;          /* measured off dirtverse's settled ring: 1.5x the orb */
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
@@ -53,7 +53,9 @@
      in JS, so Chrome never depth-sorts the orbs by slicing them along each
      other's planes — that slicing is what cut orbs clean down the middle. */
   .tilt{ position:absolute; inset:0 }
-  .ring{ position:absolute; left:50%; top:47%; width:0; height:0 }
+  /* dirtverse's carousel section is the viewport less a 104.6px strip at the
+     bottom, with the ring dead centre of it */
+  .ring{ position:absolute; left:50%; top:calc((100% - 104.6px) / 2); width:0; height:0 }
 
   /* each slot: JS writes the whole projection, pivoting on the ring centre */
   .slot{
@@ -73,8 +75,8 @@
   .orbvid{ max-width:none; object-fit:contain; background:none }
 
   .orbimg{
-    width:520px; height:520px;
-    margin:-260px 0 0 -260px;          /* centre the orb on its slot origin */
+    width:533.333px; height:533.333px; /* dirtverse's orb size */
+    margin:-266.667px 0 0 -266.667px;  /* centre the orb on its slot origin */
     background-size:contain; background-repeat:no-repeat; background-position:center;
     display:block; pointer-events:none; position:relative;
     backface-visibility:hidden;        /* far half of the ring drops out cleanly */
@@ -88,7 +90,7 @@
     color:var(--pill-in); pointer-events:none;
   }
   @media (max-width:820px){
-    :root{ --r:760px }
+    :root{ --r:540px }   /* same 1.5x ratio to the smaller orb */
     .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
   }
   @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
@@ -206,7 +208,7 @@
   ring.parentNode.insertBefore(tiltEl, ring);
   tiltEl.appendChild(ring);
 
-  let R = 1150;
+  let R = 800;
   const readGeometry = () => {
     const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--r'));
     if (r) R = r;
@@ -305,9 +307,13 @@
   // comes up beside the viewer and projects enormous, and its opaque white
   // square can land over the orbs in front. A slot is hidden once its box is
   // fully off screen (or behind the camera), and its video paused.
-  const PERSP = 850;
-  let faceHalf = faces[0] ? faces[0].offsetWidth / 2 : 260;
-  addEventListener('resize', () => { if (faces[0]) faceHalf = faces[0].offsetWidth / 2; }, { passive: true });
+  let faceHalf = faces[0] ? parseFloat(getComputedStyle(faces[0]).width) / 2 : 266.667;
+  // dirtverse holds perspective at 1.5x the orb size: 800px on a 533px orb
+  let PERSP = faceHalf * 3;
+  addEventListener('resize', () => {
+    if (faces[0]) faceHalf = parseFloat(getComputedStyle(faces[0]).width) / 2;
+    PERSP = faceHalf * 3;
+  }, { passive: true });
   const shown = slots.map(() => true);
   const drawn = slots.map(() => '');
   const depth = new Float64Array(N);
@@ -321,12 +327,11 @@
 
     advance(spin, dt); advance(rad, dt); advance(tiltX, dt); advance(tiltY, dt);
 
-    // Same maths the nested version did — perspective on the ring centre,
-    // tilt pivoting on the screen centre (3vh below it), then spin, then out
-    // to the rim — composed per slot instead of by a 3D context.
-    const dy = (innerHeight * 0.03).toFixed(1);
-    const head = 'perspective(' + PERSP + 'px) translateY(' + dy + 'px) rotateX(' + tiltX.v.toFixed(3) +
-                 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg) translateY(-' + dy + 'px) rotateY(';
+    // Same maths as dirtverse's nested 3D: perspective and cursor tilt both
+    // centred on the ring, then spin, then out to the rim, composed per slot
+    // instead of by a 3D context.
+    const head = 'perspective(' + PERSP + 'px) rotateX(' + tiltX.v.toFixed(3) +
+                 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg) rotateY(';
     const tail = 'deg) translateZ(' + (-rad.v).toFixed(1) + 'px)';
     const edge = innerWidth / 2 + 40;          // slack for the cursor tilt
 

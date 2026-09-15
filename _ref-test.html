@@ -1,7 +1,7 @@
 <title>MY ORBS - new clips only</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100,400;100,500;100,700;100,900;125,900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
 
 <style>
   :root{
@@ -13,8 +13,9 @@
     --ink:    #0A0A0A;
     --pill:   #F0F0F0;
     --pill-in:#48484A;
+    --title-ink:#E4E4E7;   /* tunnel titles: a soft grey watermark the orbs sit in front of */
     /* the carousel, in one place */
-    --r: 1150px;
+    --r: 800px;          /* measured off dirtverse's settled ring: 1.5x the orb */
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
@@ -47,13 +48,16 @@
     position:fixed; inset:0;
     touch-action:none; user-select:none; -webkit-user-select:none;
     cursor:grab; overflow:hidden;
+    isolation:isolate;                   /* own stacking context: titles can sit behind the orbs */
   }
   .scene[data-drag="1"]{ cursor:grabbing }
   /* No shared 3D context on purpose. Each slot carries its own perspective()
      in JS, so Chrome never depth-sorts the orbs by slicing them along each
      other's planes — that slicing is what cut orbs clean down the middle. */
   .tilt{ position:absolute; inset:0 }
-  .ring{ position:absolute; left:50%; top:47%; width:0; height:0 }
+  /* dirtverse's carousel section is the viewport less a 104.6px strip at the
+     bottom, with the ring dead centre of it */
+  .ring{ position:absolute; left:50%; top:calc((100% - 104.6px) / 2); width:0; height:0 }
 
   /* each slot: JS writes the whole projection, pivoting on the ring centre */
   .slot{
@@ -70,16 +74,49 @@
   /* A video face sizes like an image face. max-width matters: a host
      stylesheet's video{max-width:100%} resolves against the zero-width .ring
      and collapses it — the same trap that rules out <img> here. */
-  .orbvid{ max-width:none; object-fit:contain; background:none }
+  /* clip each clip to its disc: its white square corners would otherwise paint over
+     the watermark titles running behind the orbs (disc edge is 39.9% of the frame) */
+  .orbvid{ max-width:none; object-fit:contain; background:none; clip-path:circle(39.5% at 50% 50%) }
 
   .orbimg{
-    width:520px; height:520px;
-    margin:-260px 0 0 -260px;          /* centre the orb on its slot origin */
+    width:533.333px; height:533.333px; /* dirtverse's orb size */
+    margin:-266.667px 0 0 -266.667px;  /* centre the orb on its slot origin */
     background-size:contain; background-repeat:no-repeat; background-position:center;
     display:block; pointer-events:none; position:relative;
     backface-visibility:hidden;        /* far half of the ring drops out cleanly */
   }
 
+
+  /* ---------- section titles: a tunnel behind the orbs ---------- */
+  /* The title is part of the background. Its words are split across two giant
+     lines, one on the tunnel's ceiling above the orbs and one on its floor
+     below them, each leaning back toward the middle of the screen where the
+     orbs float, so the lettering runs far back into the distance. It is set in
+     one flat soft grey, a watermark the orbs lead in front of. JS sizes each line to the
+     screen; on a handover the titles cross-fade where they stand, never moving. */
+  .titles{
+    position:absolute; inset:0; z-index:-1;   /* behind the orbs, inside the scene */
+    pointer-events:none; opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
+  }
+  .titles.in{ opacity:1 }
+  .sr-only{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+            overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap }
+  .title{ position:absolute; inset:0; opacity:0; will-change:opacity }
+  .title__line{
+    position:absolute; left:50%; white-space:nowrap;
+    font-family:Archivo, system-ui, sans-serif;   /* Archivo Black: the header's family at full weight */
+    font-weight:900; font-stretch:62%; line-height:1; text-transform:uppercase;   /* Archivo at its narrowest: skinny letters */
+    letter-spacing:.08em; padding-left:.08em;   /* spread out; the padding balances the tracking after the last letter */
+    color:var(--title-ink);
+  }
+  /* ceiling: pinned by its top edge, its lower edge running back into the tunnel */
+  .title__line--top{
+    transform-origin:50% 0%;
+  }
+  /* floor: pinned by its bottom edge, its upper edge running back into the tunnel */
+  .title__line--bot{
+    transform-origin:50% 100%;
+  }
 
   .foot{
     position:fixed; left:0; right:0; bottom:18px; z-index:10;
@@ -88,10 +125,12 @@
     color:var(--pill-in); pointer-events:none;
   }
   @media (max-width:820px){
-    :root{ --r:760px }
+    :root{ --r:540px }   /* same 1.5x ratio to the smaller orb */
     .orbimg{ width:360px; height:360px; margin:-180px 0 0 -180px }
   }
-  @media (max-width:700px){ .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px } }
+  @media (max-width:700px){
+    .nav a,.contact{ font-size:13px; padding:6px 13px } .nav{ gap:6px }
+  }
   @media (prefers-reduced-motion: reduce){
     .slot__f{ animation:none }
     .slot{ transition:none }
@@ -233,16 +272,16 @@
 
 <div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys.">
   <div class="ring" id="ring" style="--step:36deg">
-    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs"></video></div></div>
-    <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs"></video></div></div>
-    <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark"></video></div></div>
-    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs"></video></div></div>
-    <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces"></video></div></div>
-    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs"></video></div></div>
-    <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs"></video></div></div>
-    <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark"></video></div></div>
-    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs"></video></div></div>
-    <div class="slot" style="--i:9"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces"></video></div></div>
+    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs" data-title="More about me" data-tint="#E84E52"></video></div></div>
+    <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs" data-title="Contact" data-tint="#225576"></video></div></div>
+    <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark" data-title="What you should know" data-tint="#D57594"></video></div></div>
+    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs" data-title="My work" data-tint="#609B61"></video></div></div>
+    <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces" data-title="Testimonies" data-tint="#C89897"></video></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs" data-title="More about me" data-tint="#E84E52"></video></div></div>
+    <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs" data-title="Contact" data-tint="#225576"></video></div></div>
+    <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark" data-title="What you should know" data-tint="#D57594"></video></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs" data-title="My work" data-tint="#609B61"></video></div></div>
+    <div class="slot" style="--i:9"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces" data-title="Testimonies" data-tint="#C89897"></video></div></div>
   </div>
 </div>
 
@@ -260,6 +299,53 @@
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const ring = document.getElementById('ring');
+
+  // Section titles. Each orb clip carries its section in data-title (its twin
+  // on the far side shares it). Only the orb at the front shows its title,
+  // which rides above that orb and hands over to the next as the ring turns.
+  const titleBox = document.createElement('div');
+  titleBox.className = 'titles';
+  scene.appendChild(titleBox);
+  // the watermark is decorative-strength contrast, so the front section is also announced
+  const titleLive = document.createElement('p');
+  titleLive.className = 'sr-only';
+  titleLive.setAttribute('aria-live', 'polite');
+  scene.appendChild(titleLive);
+  const slotTitle = slots.map(s => {
+    const v = s.querySelector('video');
+    return v ? v.dataset.title || '' : '';
+  });
+  // Split a title across the tunnel's ceiling and floor at the word break
+  // that balances the two lines best; a single word keeps the ceiling alone.
+  const splitTitle = name => {
+    const words = name.split(' ');
+    let best = [name, ''], gap = Infinity;
+    for (let i = 1; i < words.length; i++){
+      const top = words.slice(0, i).join(' '), bot = words.slice(i).join(' ');
+      const d = Math.abs(top.length - bot.length);
+      if (d < gap){ gap = d; best = [top, bot]; }
+    }
+    return best;
+  };
+  const titleEls = new Map();                     // title -> { el, lines, drawn }
+  for (let k = 0; k < N; k++){
+    const name = slotTitle[(N / 2 + k) % N];
+    if (!name || titleEls.has(name)) continue;
+    const el = document.createElement('div');
+    el.className = 'title';
+    const lines = [];
+    const [topText, botText] = splitTitle(name);
+    for (const [text, where] of [[topText, 'top'], [botText, 'bot']]){
+      if (!text) continue;
+      const node = document.createElement('span');
+      node.className = 'title__line title__line--' + where;
+      node.textContent = text;
+      el.appendChild(node);
+      lines.push({ node, where, text });
+    }
+    titleBox.appendChild(el);
+    titleEls.set(name, { el, lines, drawn: '' });
+  }
 
   // Chrome declines the autoplay attribute often enough that a video orb just
   // sits on its poster frame. Ask directly, and retry on first interaction.
@@ -328,7 +414,7 @@
   ring.parentNode.insertBefore(tiltEl, ring);
   tiltEl.appendChild(ring);
 
-  let R = 1150;
+  let R = 800;
   const readGeometry = () => {
     const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--r'));
     if (r) R = r;
@@ -361,13 +447,13 @@
   });
 
   let armed = calm;
-  if (calm) slots.forEach(s => s.classList.add('in'));
+  if (calm) { slots.forEach(s => s.classList.add('in')); titleBox.classList.add('in'); }
   else {
     const enter = () => {
       setTimeout(() => {
         spin.target = 180;
         rad.target  = R;
-        slots.forEach(s => s.classList.add('in'));
+        { slots.forEach(s => s.classList.add('in')); titleBox.classList.add('in'); }
       }, ENTRY_DELAY * 1000);
       setTimeout(() => { armed = true; }, ENTRY_DELAY * 1000 + ARM_AFTER);
     };
@@ -432,14 +518,75 @@
   // comes up beside the viewer and projects enormous, and its opaque white
   // square can land over the orbs in front. A slot is hidden once its box is
   // fully off screen (or behind the camera), and its video paused.
-  const PERSP = 850;
-  let faceHalf = faces[0] ? faces[0].offsetWidth / 2 : 260;
-  addEventListener('resize', () => { if (faces[0]) faceHalf = faces[0].offsetWidth / 2; }, { passive: true });
+  let faceHalf = faces[0] ? parseFloat(getComputedStyle(faces[0]).width) / 2 : 266.667;
+  // dirtverse holds perspective at 1.5x the orb size: 800px on a 533px orb
+  let PERSP = faceHalf * 3;
+  addEventListener('resize', () => {
+    if (faces[0]) faceHalf = parseFloat(getComputedStyle(faces[0]).width) / 2;
+    PERSP = faceHalf * 3;
+  }, { passive: true });
   const shown = slots.map(() => true);
   const drawn = slots.map(() => '');
   const depth = new Float64Array(N);
   const order = slots.map((_, i) => i);
   const zDrawn = new Int8Array(N).fill(-1);
+
+  // Tunnel geometry. The letters are stretched long and skinny, and the two lines
+  // lean differently: the ceiling a moderate lean, the floor a steep one seen from
+  // close up, so its near (bottom) edge flares wide while its far edge pinches in
+  // toward the orbs, like looking down into an abyss. The lines are a watermark
+  // behind the orbs, so each may run in as far as the ring centre. Each line is
+  // sized on its own: as tall as its band allows once stretched and foreshortened,
+  // and never wider than 86% of the screen.
+  const TUNNEL = {
+    top: { tilt: 40, persp: 900 },
+    bot: { tilt: 40, persp: 520 },   // gentle enough to reach the orbs without a huge stretched layer
+  };
+  const TUNNEL_STRETCH = 2.6;
+  let announced = '';                                           // last title read out to screen readers
+  const layoutTitles = () => {
+    const vw = innerWidth, vh = innerHeight;
+    const cy = (vh - 104.6) / 2;                                // ring centre, as in the CSS
+    const topStart = document.querySelector('.bar').getBoundingClientRect().bottom + 32;   // under the header
+    const botEnd = document.querySelector('.foot').getBoundingClientRect().top - 32;       // above the foot
+    const bands = { top: cy - 12 - topStart, bot: botEnd - (cy + 12) };
+    const probe = document.createElement('span');
+    probe.className = 'title__line';
+    probe.style.cssText = 'visibility:hidden;font-size:100px;left:0;top:0;transform:none';
+    titleBox.appendChild(probe);
+    for (const rec of titleEls.values()){
+      for (const l of rec.lines){
+        const pose = TUNNEL[l.where], tilt = pose.tilt * Math.PI / 180;
+        probe.textContent = l.text;
+        const widest = 100 * vw * 0.86 / probe.offsetWidth;      // never wider than 86% of the screen
+        let size, stretch;
+        if (l.where === 'top'){
+          stretch = TUNNEL_STRETCH;
+          size = Math.min(widest, Math.max(40, bands.top) / (0.72 * stretch * Math.cos(tilt)));
+        } else {
+          // The floor reaches up toward the orbs: pick the stretch that lands the tops of its
+          // capitals just under the front orb. In perspective, capitals stretched to height H
+          // rise H cos(t) * P / (P + H sin(t)) on screen; solving that for H gives the stretch.
+          size = Math.min(widest, 260);
+          const reach = botEnd - (cy + faceHalf * PERSP / (PERSP + R) - 8);
+          const room = pose.persp * Math.cos(tilt) - reach * Math.sin(tilt);
+          const tall = room > 0 ? reach * pose.persp / room : Infinity;
+          stretch = Math.min(7, Math.max(TUNNEL_STRETCH, tall / (0.72 * size)));   // bounded: a longer stretch builds a layer too big to draw smoothly
+        }
+        l.node.style.fontSize = size.toFixed(1) + 'px';
+        if (l.where === 'top'){ l.node.style.top = topStart + 'px'; l.node.style.bottom = ''; }
+        else { l.node.style.bottom = (vh - botEnd) + 'px'; l.node.style.top = ''; }
+        // the fixed pose: the ceiling leans its lower edge away, the floor its upper edge
+        l.node.style.transform = 'translate(-50%,0) perspective(' + pose.persp + 'px) rotateX(' +
+          (l.where === 'top' ? -pose.tilt : pose.tilt) + 'deg) scaleY(' + stretch.toFixed(3) + ')';
+      }
+      rec.drawn = '';                                            // rewrite opacity next frame
+    }
+    probe.remove();
+  };
+  layoutTitles();
+  document.fonts.ready.then(layoutTitles);
+  addEventListener('resize', layoutTitles, { passive: true });
   let prev = performance.now();
 
   (function frame(now){
@@ -448,12 +595,11 @@
 
     advance(spin, dt); advance(rad, dt); advance(tiltX, dt); advance(tiltY, dt);
 
-    // Same maths the nested version did — perspective on the ring centre,
-    // tilt pivoting on the screen centre (3vh below it), then spin, then out
-    // to the rim — composed per slot instead of by a 3D context.
-    const dy = (innerHeight * 0.03).toFixed(1);
-    const head = 'perspective(' + PERSP + 'px) translateY(' + dy + 'px) rotateX(' + tiltX.v.toFixed(3) +
-                 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg) translateY(-' + dy + 'px) rotateY(';
+    // Same maths as dirtverse's nested 3D: perspective and cursor tilt both
+    // centred on the ring, then spin, then out to the rim, composed per slot
+    // instead of by a 3D context.
+    const head = 'perspective(' + PERSP + 'px) rotateX(' + tiltX.v.toFixed(3) +
+                 'deg) rotateY(' + tiltY.v.toFixed(3) + 'deg) rotateY(';
     const tail = 'deg) translateZ(' + (-rad.v).toFixed(1) + 'px)';
     const edge = innerWidth / 2 + 40;          // slack for the cursor tilt
 
@@ -487,6 +633,29 @@
     for (let k = 0; k < N; k++){
       const i = order[k];
       if (zDrawn[i] !== k){ slots[i].style.zIndex = k; zDrawn[i] = k; }
+    }
+
+    // Titles. Each is weighted by how near its orb is to dead front and simply
+    // cross-fades where it stands: the tunnel lines never move, they only swap.
+    const near = new Map();                        // title -> weight 0..1
+    for (let i = 0; i < N; i++){
+      const name = slotTitle[i];
+      if (!name) continue;
+      const off = ((spin.v - i * STEP) % 360 + 540) % 360 - 180;   // degrees from front
+      const t = 1 - Math.abs(off) / (STEP * 0.75);                 // overlap the handover
+      if (t > (near.get(name) || 0)) near.set(name, t);
+    }
+    // read out the front title only when it changes, never per frame
+    let frontName = '', frontT = 0;
+    for (const [name, t] of near) if (t > frontT){ frontT = t; frontName = name; }
+    if (frontName && frontName !== announced){ announced = frontName; titleLive.textContent = frontName; }
+    for (const [name, rec] of titleEls){
+      const t = near.get(name) || 0;
+      const o = t * t * (3 - 2 * t);                // smoothstep: no hard edges in the fade
+      const key = o.toFixed(3);
+      if (key === rec.drawn) continue;
+      rec.drawn = key;
+      rec.el.style.opacity = key;
     }
 
     requestAnimationFrame(frame);
