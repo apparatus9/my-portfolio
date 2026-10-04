@@ -2,6 +2,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="prefetch" href="about-me.html">
 
 <style>
   :root{
@@ -86,6 +87,21 @@
     backface-visibility:hidden;        /* far half of the ring drops out cleanly */
   }
 
+
+  /* ---------- linked orbs ---------- */
+  /* An orb with data-href is a door. It takes the pointer back (the disc only,
+     thanks to the clip-path), so a tap on it opens its page while a drag that
+     starts on it still turns the ring: the scene sees the same pointerdown. */
+  .orbvid[data-href]{ pointer-events:auto; cursor:pointer; transition:transform .45s cubic-bezier(.2,.7,.2,1) }
+  .orbvid[data-href]:hover{ transform:scale(1.035) }
+  .scene[data-drag="1"] .orbvid[data-href]{ cursor:grabbing; transform:none }
+  /* the bloom: the orb's own colour grows out of it until it owns the screen,
+     then the next page opens under the same colour and lets it fade */
+  .wipe{
+    position:fixed; inset:0; z-index:30; pointer-events:none;
+    transition:clip-path .72s cubic-bezier(.7,0,.2,1);
+    will-change:clip-path;
+  }
 
   /* ---------- section titles: a tunnel behind the orbs ---------- */
   /* The title is part of the background. Its words are split across two giant
@@ -270,14 +286,14 @@
   <a class="contact" href="#" onclick="return false">Contact</a>
 </header>
 
-<div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys.">
+<div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys. Press Enter to open the orb at the front.">
   <div class="ring" id="ring" style="--step:36deg">
-    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs" data-title="More about me" data-tint="#E84E52"></video></div></div>
+    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs. Opens More about me." data-title="More about me" data-tint="#E84E52" data-href="about-me.html"></video></div></div>
     <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs" data-title="Contact" data-tint="#225576"></video></div></div>
     <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark" data-title="What you should know" data-tint="#D57594"></video></div></div>
     <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs" data-title="My work" data-tint="#609B61"></video></div></div>
     <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces" data-title="Testimonies" data-tint="#C89897"></video></div></div>
-    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs" data-title="More about me" data-tint="#E84E52"></video></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs. Opens More about me." data-title="More about me" data-tint="#E84E52" data-href="about-me.html"></video></div></div>
     <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs" data-title="Contact" data-tint="#225576"></video></div></div>
     <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark" data-title="What you should know" data-tint="#D57594"></video></div></div>
     <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs" data-title="My work" data-tint="#609B61"></video></div></div>
@@ -287,7 +303,7 @@
 
 
 <div class="foot">
-  <span>Drag to slide</span>
+  <span>Drag to slide &middot; Click the red orb to open</span>
 </div>
 
 <script>
@@ -467,8 +483,51 @@
   // only the spring still catching up to where your finger left the target.
   let dragging = false, x0 = 0, rot0 = 0;
 
+  // --- a tap on a linked orb opens it -----------------------------------
+  // Same pointerdown as the drag. If the pointer comes up within a few pixels
+  // and a few hundred ms of where it went down, that was a click, not a turn.
+  const TAP_SLOP = 8, TAP_MS = 500;
+  let tap = null;                        // { el, x, y, t } while a press might still be a tap
+  let leaving = false;
+
+  const openOrb = el => {
+    if (leaving || !el) return;
+    leaving = true;
+    const href = el.dataset.href, tint = el.dataset.tint || '#E84E52';
+    try { sessionStorage.setItem('orb-arrive', tint); } catch {}
+    const go = () => { location.href = href; };
+    if (calm){ go(); return; }
+    // grow the orb's colour out of the orb's disc until it covers the screen
+    const b = el.getBoundingClientRect();
+    const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+    const r0 = Math.min(b.width, b.height) * 0.395;        // the disc edge in the clip
+    const far = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+    const wipe = document.createElement('div');
+    wipe.className = 'wipe';
+    wipe.style.background = tint;
+    wipe.style.clipPath = 'circle(' + r0.toFixed(1) + 'px at ' + cx.toFixed(1) + 'px ' + cy.toFixed(1) + 'px)';
+    document.body.appendChild(wipe);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      wipe.style.clipPath = 'circle(' + (far + 24).toFixed(1) + 'px at ' + cx.toFixed(1) + 'px ' + cy.toFixed(1) + 'px)';
+    }));
+    wipe.addEventListener('transitionend', go, { once: true });
+    setTimeout(go, 1000);                                   // never strand the click
+  };
+  // the orb nearest dead front, for the keyboard
+  const frontOrb = () => {
+    let best = -1, bestOff = Infinity;
+    for (let i = 0; i < N; i++){
+      const off = Math.abs(((spin.v - i * STEP) % 360 + 540) % 360 - 180);
+      if (off < bestOff){ bestOff = off; best = i; }
+    }
+    const v = best >= 0 ? faces[best] : null;
+    return v && v.dataset.href ? v : null;
+  };
+
   scene.addEventListener('pointerdown', e => {
-    if (!armed || e.target.closest('.bar') || e.target.closest('.foot')) return;
+    if (!armed || leaving || e.target.closest('.bar') || e.target.closest('.foot')) return;
+    const door = e.target.closest('.orbvid[data-href]');
+    tap = door ? { el: door, x: e.clientX, y: e.clientY, t: performance.now() } : null;
     dragging = true; x0 = e.clientX; rot0 = spin.target;
     scene.setPointerCapture(e.pointerId);
     scene.dataset.drag = '1';
@@ -483,7 +542,11 @@
   }, { passive: true });
 
   scene.addEventListener('pointermove', e => {
-    if (dragging){ spin.target = rot0 - (e.clientX - x0) * SENS; return; }
+    if (dragging){
+      spin.target = rot0 - (e.clientX - x0) * SENS;
+      if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_SLOP) tap = null;   // it became a drag
+      return;
+    }
     if (calm || coarse || !armed || tiltRaf) return;
     const px = e.clientX, py = e.clientY;
     tiltRaf = requestAnimationFrame(() => {   // one cached rect read per frame
@@ -500,8 +563,15 @@
     if (e && e.pointerId != null && scene.hasPointerCapture?.(e.pointerId))
       scene.releasePointerCapture(e.pointerId);
   };
-  scene.addEventListener('pointerup', release);
-  scene.addEventListener('pointercancel', release);
+  scene.addEventListener('pointerup', e => {
+    const hit = tap && dragging &&
+      Math.hypot(e.clientX - tap.x, e.clientY - tap.y) <= TAP_SLOP &&
+      performance.now() - tap.t <= TAP_MS ? tap.el : null;
+    tap = null;
+    release(e);
+    if (hit){ spin.target = rot0; openOrb(hit); }   // a tap turns nothing
+  });
+  scene.addEventListener('pointercancel', e => { tap = null; release(e); });
   scene.addEventListener('lostpointercapture', release);
   scene.addEventListener('pointerleave', e => {
     release(e);
@@ -509,6 +579,11 @@
   });
 
   scene.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' '){
+      const door = frontOrb();
+      if (door){ openOrb(door); e.preventDefault(); }
+      return;
+    }
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     spin.target += (e.key === 'ArrowRight' ? -STEP : STEP);
     e.preventDefault();

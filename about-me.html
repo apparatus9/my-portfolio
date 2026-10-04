@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>More about me — Ejay Adamo</title>
+<meta name="theme-color" content="#B5121F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+
+<!--
+  MORE ABOUT ME — the red page.
+
+  Reached by clicking the red orb on the carousel. The orb's tint blooms out to
+  cover the screen there, and this page opens under that same red, then lets it
+  fade. The page itself is a blank shell in a red take on Apple's Liquid Glass:
+  a deep red sky with slow drifting light behind, and frosted glass panels on
+  top that blur and brighten whatever passes beneath them.
+
+  HOW TO FILL IT IN
+  - Every dashed box with a label is a .drop: a placeholder. Delete the .drop
+    and put your own markup in its place. The glass panel around it stays.
+  - .glass        a frosted panel. Put it on any block to make it glass.
+  - .glass--pill  a small rounded glass control (nav buttons, tags).
+  - .rise         staggers the panel in on load; --n is its place in the queue.
+  - Colours and the blur strength live in :root below.
+-->
+
+<style>
+  :root{
+    --red:      #E84E52;   /* the orb's own tint: the wipe arrives on this colour */
+    --red-mid:  #B5121F;
+    --red-deep: #4A050B;
+    --coral:    #FF8E6E;
+    --rose:     #FFC2B8;
+
+    --ink:      #FFFFFF;
+    --ink-dim:  rgba(255,255,255,.72);
+    --ink-faint:rgba(255,255,255,.46);
+
+    /* the glass */
+    --glass-blur: 30px;
+    --glass-fill: linear-gradient(135deg, rgba(255,255,255,.26), rgba(255,255,255,.07));
+    --glass-fill-hover: linear-gradient(135deg, rgba(255,255,255,.34), rgba(255,255,255,.12));
+    --radius: 28px;
+    --radius-sm: 18px;
+
+    --page: 1180px;
+    --gutter: clamp(16px, 3vw, 32px);
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  html{ color-scheme:dark; scroll-behavior:smooth }
+  html,body{ min-height:100% }
+  body{
+    background:var(--red-mid);        /* painted even before the sky layer is up */
+    color:var(--ink);
+    font-family:Archivo, system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img,video{ max-width:100% }
+  [hidden]{ display:none !important }
+
+  /* ---------- arrival: the red the orb left behind, fading off ---------- */
+  .cover{
+    position:fixed; inset:0; z-index:50; background:var(--red);
+    transition:opacity .7s cubic-bezier(.4,0,.2,1) .08s;
+  }
+  .cover.out{ opacity:0; pointer-events:none }
+
+  /* ---------- the sky: deep red with slow light moving behind the glass ---------- */
+  .sky{
+    position:fixed; inset:0; z-index:-1; overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 18% 0%,   #D62B38 0%, rgba(214,43,56,0) 60%),
+      radial-gradient(90% 80%  at 100% 100%, #3E040A 0%, rgba(62,4,10,0) 60%),
+      linear-gradient(160deg, #C1151F 0%, #7F0912 70%, var(--red-deep) 100%);
+  }
+  .blob{
+    position:absolute; border-radius:50%;
+    filter:blur(72px); mix-blend-mode:screen; opacity:.85;
+    will-change:transform;
+    animation:drift var(--t) ease-in-out infinite alternate;
+  }
+  .blob--1{ width:56vmax; height:56vmax; left:-14vmax; top:-18vmax; background:#FF5A61; --t:26s }
+  .blob--2{ width:44vmax; height:44vmax; right:-12vmax; top:8vh;    background:var(--coral); --t:31s; animation-delay:-9s }
+  .blob--3{ width:52vmax; height:52vmax; left:18vw;   bottom:-28vmax; background:#FF3B4F; --t:37s; animation-delay:-17s }
+  .blob--4{ width:28vmax; height:28vmax; left:56vw;   top:34vh;    background:var(--rose); opacity:.42; --t:22s; animation-delay:-5s }
+  @keyframes drift{
+    from{ transform:translate(0,0) scale(1) }
+    to  { transform:translate(6vw,-5vh) scale(1.12) }
+  }
+  /* a whisper of grain so the big gradients never band */
+  .sky::after{
+    content:""; position:absolute; inset:0; opacity:.07; mix-blend-mode:overlay; pointer-events:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---------- the glass ---------- */
+  .glass{
+    position:relative; isolation:isolate;
+    border-radius:var(--radius);
+    background:var(--glass-fill);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+            backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    box-shadow:
+      inset 0  1px 0 rgba(255,255,255,.50),   /* light catching the top edge */
+      inset 0 -1px 0 rgba(255,255,255,.08),
+      inset 1px 0  0 rgba(255,255,255,.16),
+      0 30px 70px -24px rgba(60,0,8,.60),      /* the panel lifted off the sky */
+      0 2px 8px rgba(60,0,8,.14);
+  }
+  /* the specular: light pooled toward the top-left, as on Liquid Glass */
+  .glass::before{
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(120% 80% at 16% 0%,   rgba(255,255,255,.30), rgba(255,255,255,0) 52%),
+      radial-gradient(60% 50%  at 100% 100%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%);
+  }
+  /* the rim: a hairline of refracted light running round the edge */
+  .glass::after{
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
+    padding:1px;
+    background:linear-gradient(135deg,
+      rgba(255,255,255,.75) 0%, rgba(255,255,255,.14) 35%,
+      rgba(255,255,255,.08) 65%, rgba(255,255,255,.45) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+            mask-composite:exclude;
+  }
+  .glass > *{ position:relative; z-index:1 }
+  /* no backdrop-filter: lean on a heavier fill so the type still reads */
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .glass{ background:linear-gradient(135deg, rgba(150,22,34,.86), rgba(110,10,20,.86)) }
+  }
+
+  .glass--pill{
+    border-radius:999px;
+    padding:9px 18px;
+    font-size:14px; font-weight:500; color:var(--ink); text-decoration:none;
+    white-space:nowrap; display:inline-flex; align-items:center; gap:8px;
+    transition:transform .35s cubic-bezier(.2,.7,.2,1), background .35s ease;
+  }
+  .glass--pill:hover{ background:var(--glass-fill-hover); transform:translateY(-1px) }
+  .glass--pill:active{ transform:translateY(0) scale(.985) }
+  .glass--pill[aria-current="page"]{ background:rgba(255,255,255,.92); color:var(--red-mid) }
+  .solid{
+    border-radius:999px; padding:9px 18px; font-size:14px; font-weight:600; text-decoration:none;
+    background:var(--ink); color:var(--red-mid); white-space:nowrap;
+    box-shadow:0 10px 30px -12px rgba(60,0,8,.6);
+    transition:transform .35s cubic-bezier(.2,.7,.2,1);
+  }
+  .solid:hover{ transform:translateY(-1px) }
+  a:focus-visible,button:focus-visible{ outline:2px solid #fff; outline-offset:3px; border-radius:999px }
+
+  /* ---------- chrome ---------- */
+  .bar{
+    position:fixed; inset:env(safe-area-inset-top, 0px) 0 auto 0; z-index:10;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:18px var(--gutter);
+    pointer-events:none;
+  }
+  .bar > *{ pointer-events:auto }
+  .nav{ display:flex; gap:9px; flex-wrap:wrap }
+  .back::before{ content:"←"; font-weight:700 }
+  .brand{
+    font-weight:900; font-stretch:125%; font-size:19px; letter-spacing:-.04em; white-space:nowrap;
+    position:absolute; left:50%; transform:translateX(-50%); color:var(--ink);
+  }
+  @media (max-width:920px){ .brand{ display:none } }
+
+  /* ---------- the page ---------- */
+  .page{
+    width:min(var(--page), 100% - 2 * var(--gutter));
+    margin:0 auto;
+    padding-block:calc(112px + env(safe-area-inset-top, 0px)) 96px;
+    display:grid; gap:20px;
+  }
+  .eyebrow{
+    font-size:11px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--ink-dim);
+  }
+
+  .hero{
+    min-height:min(68vh, 720px);
+    padding:clamp(24px, 4vw, 48px);
+    display:grid; grid-template-columns:1.15fr .85fr; gap:clamp(20px, 3vw, 40px);
+  }
+  .hero__copy{ display:grid; grid-template-rows:auto 1fr; gap:28px }
+  .hero__media{ min-height:360px }
+
+  .tiles{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px }
+  .tile{ padding:clamp(20px, 2.6vw, 32px); min-height:300px; display:grid; gap:18px; align-content:start }
+
+  .wide{ padding:clamp(20px, 2.6vw, 32px); min-height:420px; display:grid; gap:18px; align-content:start }
+
+  .foot{
+    display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    padding:8px var(--gutter) 0;
+    font-size:11px; font-weight:500; letter-spacing:.24em; text-transform:uppercase; color:var(--ink-faint);
+  }
+
+  /* ---------- placeholders: swap each one for the real thing ---------- */
+  .drop{
+    border:1.5px dashed rgba(255,255,255,.38); border-radius:var(--radius-sm);
+    min-height:120px; height:100%;
+    display:grid; place-items:center; text-align:center; padding:20px;
+    color:var(--ink-dim); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase;
+  }
+  .drop small{ display:block; margin-top:8px; letter-spacing:.04em; text-transform:none; color:var(--ink-faint); font-size:12px }
+
+  /* ---------- entrance ---------- */
+  .rise{ opacity:0; transform:translateY(18px) scale(.985);
+         animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards;
+         animation-delay:calc(var(--n, 0) * 90ms + 160ms) }
+  body.arrive .rise{ animation-delay:calc(var(--n, 0) * 90ms + 480ms) }   /* wait for the red to lift */
+  @keyframes rise{ to{ opacity:1; transform:none } }
+
+  @media (max-width:820px){
+    .hero{ grid-template-columns:1fr; min-height:0 }
+    .hero__media{ min-height:260px }
+    .tiles{ grid-template-columns:1fr }
+    .tile{ min-height:220px }
+    :root{ --radius:22px }
+  }
+  @media (max-width:700px){
+    .glass--pill,.solid{ font-size:13px; padding:7px 14px } .nav{ gap:6px }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .blob{ animation:none }
+    .rise{ animation:none; opacity:1; transform:none }
+    .cover{ transition:none }
+    html{ scroll-behavior:auto }
+  }
+</style>
+</head>
+<body>
+
+<!-- The red the orb bloomed into. Removed at once unless we arrived from the orb. -->
+<div class="cover" id="cover" aria-hidden="true"></div>
+<script>
+(() => {
+  const cover = document.getElementById('cover');
+  let tint = null;
+  try { tint = sessionStorage.getItem('orb-arrive'); sessionStorage.removeItem('orb-arrive'); } catch {}
+  if (!tint || matchMedia('(prefers-reduced-motion: reduce)').matches){ cover.remove(); return; }
+  cover.style.background = tint;
+  document.body.classList.add('arrive');
+  let gone = false;
+  const drop = () => { if (gone) return; gone = true; cover.remove(); };
+  addEventListener('load', () => {
+    requestAnimationFrame(() => requestAnimationFrame(() => cover.classList.add('out')));
+    cover.addEventListener('transitionend', drop, { once: true });
+    setTimeout(drop, 1400);
+  }, { once: true });
+  setTimeout(drop, 3000);   /* never hold the page hostage */
+})();
+</script>
+
+<div class="sky" aria-hidden="true">
+  <div class="blob blob--1"></div>
+  <div class="blob blob--2"></div>
+  <div class="blob blob--3"></div>
+  <div class="blob blob--4"></div>
+</div>
+
+<header class="bar">
+  <nav class="nav" aria-label="Site">
+    <a class="glass glass--pill back" href="_ref-test.html">Orbs</a>
+    <a class="glass glass--pill" href="about-me.html" aria-current="page">About</a>
+    <a class="glass glass--pill" href="#" onclick="return false">Work</a>
+    <a class="glass glass--pill" href="#" onclick="return false">Journal</a>
+  </nav>
+  <span class="brand">Ejay Adamo</span>
+  <a class="solid" href="#" onclick="return false">Contact</a>
+</header>
+
+<main class="page">
+
+  <!-- 1. Hero. Left: your headline and intro. Right: a portrait, a clip, anything. -->
+  <section class="glass hero rise" style="--n:0" aria-labelledby="hero-eyebrow">
+    <div class="hero__copy">
+      <p class="eyebrow" id="hero-eyebrow">More about me</p>
+      <!-- IMPORT: replace this .drop with your headline + intro -->
+      <div class="drop">Headline + intro<small>Replace this box with your own markup</small></div>
+    </div>
+    <div class="hero__media">
+      <!-- IMPORT: replace this .drop with a portrait, clip, or 3D scene -->
+      <div class="drop">Portrait or clip</div>
+    </div>
+  </section>
+
+  <!-- 2. Three panels. Rename, add, or remove as you like; the grid reflows. -->
+  <section class="tiles" aria-label="Details">
+    <article class="glass tile rise" style="--n:1">
+      <p class="eyebrow">Section one</p>
+      <!-- IMPORT -->
+      <div class="drop">Timeline</div>
+    </article>
+    <article class="glass tile rise" style="--n:2">
+      <p class="eyebrow">Section two</p>
+      <!-- IMPORT -->
+      <div class="drop">Skills</div>
+    </article>
+    <article class="glass tile rise" style="--n:3">
+      <p class="eyebrow">Section three</p>
+      <!-- IMPORT -->
+      <div class="drop">Now</div>
+    </article>
+  </section>
+
+  <!-- 3. One wide panel for anything long: a gallery, a story, a reel. -->
+  <section class="glass wide rise" style="--n:4" aria-label="Wide panel">
+    <p class="eyebrow">Section four</p>
+    <!-- IMPORT -->
+    <div class="drop">Gallery, story, or reel</div>
+  </section>
+
+  <footer class="foot rise" style="--n:5">
+    <span>Ejay Adamo</span>
+    <span>More about me</span>
+  </footer>
+
+</main>
+
+</body>
+</html>
