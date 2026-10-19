@@ -207,6 +207,12 @@
   const intro = document.getElementById('intro');
   const video = document.getElementById('intro-video');
   if (matchMedia('(prefers-reduced-motion: reduce)').matches){ intro.remove(); return; }
+  // Play once per visit: coming back from an orb's page (the "Orbs" pill, or
+  // the browser's back button) lands straight on the carousel.
+  const SEEN = 'ejay-intro-seen';
+  let seen = location.hash === '#orbs';   // the "Orbs" pill on an orb's page links here
+  try { seen = seen || sessionStorage.getItem(SEEN) === '1'; sessionStorage.setItem(SEEN, '1'); } catch (e) {}
+  if (seen){ intro.remove(); return; }
   window.introPending = true;
   document.body.classList.add('intro-on');
 
