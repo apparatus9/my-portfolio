@@ -1,0 +1,14 @@
+{
+  "name": "omada-portfolio",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve@latest -l 5180 ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

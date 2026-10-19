@@ -16,9 +16,10 @@
   Reached by clicking the blue orb on the carousel. The orb's tint blooms out to
   cover the screen there, and this page opens under that same blue, then lets it
   fade onto white. What's left is one sheet of liquid glass on a white sky with
-  ribbons of fine blue line flowing behind it: a letter. Ejay's greeting types
-  itself out, the visitor says what they need, and the email link fills itself
-  in for that. No form, no backend: the mail app does the sending.
+  ribbons of fine blue line flowing behind it: a letter that talks. Ejay's
+  greeting types itself out, the visitor says what they need (a pill or their
+  own words), and Ejay's assistant answers through /api/chat. The email link
+  carries the conversation to Ejay; the mail app does the sending.
 
   The glass and ribbon engines are copies of the ones in about-me.html, with the
   colours swapped. Change both when you change one.
@@ -225,8 +226,32 @@
   @keyframes blink{ 50%{ opacity:0 } }
   .ask{ display:grid; gap:14px }
   .choices{ display:flex; flex-wrap:wrap; gap:9px }
-  .reply{ min-height:1.6em; font-size:clamp(16px, 2vw, 19px); line-height:1.5; color:var(--ink-dim) }
-  .reply .type{ color:var(--ink-dim) }
+  /* the conversation */
+  .thread{ display:grid; gap:12px }
+  .thread:empty{ display:none }
+  .msg{ font-size:clamp(16px, 2vw, 19px); line-height:1.5 }
+  .msg--me{
+    justify-self:end; max-width:85%;
+    background:var(--ink); color:var(--paper);
+    padding:10px 16px; border-radius:20px; font-size:15px;
+    overflow-wrap:anywhere;
+  }
+  .msg--ejay{ color:var(--ink-dim); white-space:pre-line }   /* the assistant sometimes answers in two short paragraphs */
+  .msg--ejay .type{ color:var(--ink-dim) }
+  .msg--ejay .type:empty.on::after{ margin-left:0 }
+  .say{ display:flex; gap:9px; align-items:stretch }
+  .say__in{
+    flex:1; min-width:0; border:0; outline:none; appearance:none;
+    padding:12px 18px; border-radius:999px;
+    font:inherit; font-size:15px; color:var(--ink);
+    background:var(--glass-fill);
+  }
+  .say__in::placeholder{ color:var(--ink-faint) }
+  .say__in:focus-visible{ outline:2px solid var(--ink); outline-offset:3px }
+  .say__in:disabled{ opacity:.6 }
+  .say__go{ border:0; cursor:pointer; font:inherit; font-size:14px; font-weight:600; padding:0 20px }
+  .say__go:disabled{ opacity:.5; cursor:default }
+  .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap }
   .send{ display:grid; gap:10px; justify-items:start }
   .mail{
     font-size:clamp(17px, 2.4vw, 24px); padding:16px 28px; display:inline-block;
@@ -402,13 +427,18 @@
         <button type="button" class="glass glass--pill choice" data-choice="marketing"   aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">Marketing</button>
         <button type="button" class="glass glass--pill choice" data-choice="other"       aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">Something else</button>
       </div>
-      <p class="reply line" id="reply" aria-live="polite"><span class="ghost"></span><span class="type" aria-hidden="true"></span></p>
+      <div class="thread" id="thread" aria-live="polite"></div>
+      <form class="say" id="say" autocomplete="off">
+        <label class="sr" for="say-in">Type back</label>
+        <input class="glass say__in" id="say-in" type="text" maxlength="600" placeholder="Or type back…" data-chroma="0" data-band="9" data-depth="5">
+        <button class="solid say__go" id="say-go" type="submit">Send</button>
+      </form>
     </div>
 
-    <!-- The email is always here. A choice only fills in the subject and a few prompts. -->
+    <!-- The email is always here. A choice or a chat only fills in the subject and the conversation. -->
     <div class="send">
       <a class="solid mail" id="mail" href="mailto:omada008@gmail.com?subject=Hello%20Ejay">omada008@gmail.com</a>
-      <p class="hint" id="hint">Opens your mail app. Pick an option above and I'll fill in the subject.</p>
+      <p class="hint" id="hint">Opens your mail app. Pick an option or type back, and I'll fill in the subject and what we talked about.</p>
     </div>
 
     <div class="meta">
@@ -424,29 +454,31 @@
 
 </main>
 
-<!-- The conversation: the greeting types itself out, a choice types a reply and fills the mailto. -->
+<!-- The conversation: the greeting types itself out; a pill or a typed message goes to Ejay's
+     assistant at /api/chat and its answer types back. The mailto carries the whole exchange. -->
 <script>
 (() => {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const MAIL = 'omada008@gmail.com';
   const CHOICES = {
     website: {
-      reply: "A website. Good, that's most of what I do. Tell me what it's for, and whether anything exists today.",
-      subject: 'Website — ',
-      body: ['Hi Ejay,', "I'm looking for help with a website.", "What it's for:", 'What exists today, if anything:', 'Rough timeline:', 'Thanks,'] },
+      opener: "I'm looking for help with a website.",
+      offline: "A website. Good, that's most of what I do. Tell me what it's for, and whether anything exists today.",
+      subject: 'Website — ' },
     photography: {
-      reply: "Photography. Tell me what it's for and when: a shoot, a product set, an event.",
-      subject: 'Photography — ',
-      body: ['Hi Ejay,', "I'm looking for photography.", "What it's for:", 'When:', 'Where:', 'Thanks,'] },
+      opener: "I'm looking for photography.",
+      offline: "Photography. Tell me what it's for and when: a shoot, a product set, an event.",
+      subject: 'Photography — ' },
     marketing: {
-      reply: "Marketing. Tell me what you sell and where people find you now, and I'll say where I can actually help.",
-      subject: 'Marketing — ',
-      body: ['Hi Ejay,', "I'd like help with marketing.", 'What I sell:', 'Where people find me now:', "What I'd like to change:", 'Thanks,'] },
+      opener: "I'd like help with marketing.",
+      offline: "Marketing. Tell me what you sell and where people find you now, and I'll say where I can actually help.",
+      subject: 'Marketing — ' },
     other: {
-      reply: "Something else. Describe it in your own words. If it isn't mine, I'll point you to someone whose it is.",
-      subject: 'Hello — ',
-      body: ['Hi Ejay,', "Here's what I'm trying to get done:", '', 'Thanks,'] },
+      opener: "I've got something else in mind.",
+      offline: "Something else. Describe it in your own words. If it isn't mine, I'll point you to someone whose it is.",
+      subject: 'Hello — ' },
   };
+  const OFFLINE = "Chat is resting right now. Email me directly and I'll read it myself.";
 
   /* the typewriter: one timer per line, so a new run cancels the old */
   const timers = new WeakMap();
@@ -456,7 +488,7 @@
     o.textContent = line.querySelector('.ghost').textContent;
     o.classList.remove('on');
   };
-  const type = (line, hold) => new Promise((done) => {
+  const type = (line, hold, pace = 28, pause = 180) => new Promise((done) => {
     const text = line.querySelector('.ghost').textContent, o = line.querySelector('.type');
     clearTimeout(timers.get(line));
     if (still){ o.textContent = text; done(); return; }
@@ -465,7 +497,7 @@
     const tick = () => {
       if (i >= text.length){ if (!hold) o.classList.remove('on'); done(); return; }
       const ch = text[i++]; o.textContent += ch;
-      timers.set(line, setTimeout(tick, /[.,:]/.test(ch) ? 180 : 28));
+      timers.set(line, setTimeout(tick, /[.,:]/.test(ch) ? pause : pace));
     };
     tick();
   });
@@ -482,27 +514,89 @@
   };
   const skipGreeting = () => { greeted = true; lines.forEach(finish); };
   document.getElementById('greet').addEventListener('click', skipGreeting);
+  document.getElementById('thread').addEventListener('click', () => { if (lastLine) finish(lastLine); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape') skipGreeting(); });
 
-  /* a choice: press its pill, fill the mailto, type the reply */
-  const mail = document.getElementById('mail'), hint = document.getElementById('hint'), reply = document.getElementById('reply');
-  const choose = (key, quiet) => {
-    const c = CHOICES[key]; if (!c) return;
+  /* the thread */
+  const thread = document.getElementById('thread'), form = document.getElementById('say');
+  const input = document.getElementById('say-in'), go = document.getElementById('say-go');
+  const mail = document.getElementById('mail'), hint = document.getElementById('hint');
+  const history = [];          /* what has been said, in the API's shape */
+  let subject = 'Hello Ejay';
+  let busy = false, lastLine = null;
+
+  const addMine = (text) => {
+    const m = document.createElement('p'); m.className = 'msg msg--me'; m.textContent = text;
+    thread.appendChild(m);
+  };
+  const addTheirs = () => {
+    const m = document.createElement('p'); m.className = 'msg msg--ejay line';
+    m.innerHTML = '<span class="ghost"></span><span class="type on" aria-hidden="true"></span>';
+    thread.appendChild(m); return m;
+  };
+  const sayTheirs = (line, text) => {
+    line.querySelector('.ghost').textContent = text;     /* the live region reads this */
+    return type(line, false, 13, 110);                    /* brisker than the greeting: it's a chat */
+  };
+
+  /* the mailto carries the subject and what was said */
+  const updateMail = () => {
+    const lines = history.map(m => (m.role === 'user' ? 'Me: ' : 'Ejay\'s assistant: ') + m.content);
+    let transcript = lines.join('\r\n\r\n');
+    if (transcript.length > 1400) transcript = '…' + transcript.slice(-1400);   /* mailto links have limits */
+    const body = ['Hi Ejay,', '', history.length ? "Here's what we talked about on your site:" : "Here's what I'm trying to get done:", '', transcript, '', 'Thanks,'].join('\r\n');
+    mail.href = 'mailto:' + MAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  };
+
+  const setBusy = (on) => { busy = on; input.disabled = on; go.disabled = on; };
+
+  const send = async (text, offline) => {
+    if (busy) return;
+    text = (text || '').trim().slice(0, 600);
+    if (!text) return;
     skipGreeting();
+    if (lastLine) finish(lastLine);                   /* a reply still typing lands at once */
+    history.push({ role: 'user', content: text });
+    addMine(text); updateMail();
+    const line = addTheirs();
+    setBusy(true);
+    let reply, failed = false;
+    try {
+      const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+      reply = (data.reply || '').trim() || OFFLINE;
+    } catch (e){
+      failed = true;
+      reply = offline || OFFLINE;
+    }
+    history.push({ role: 'assistant', content: reply });
+    updateMail();
+    hint.textContent = failed
+      ? 'Chat is resting, so the email button is the sure way. It carries what you wrote.'
+      : 'Opens your mail app with the subject and this conversation filled in.';
+    setBusy(false);                                   /* the visitor can type while the reply types */
+    if (!failed) input.focus({ preventScroll: true });
+    lastLine = line;
+    await sayTheirs(line, reply);
+  };
+
+  /* a pill presses itself, sets the subject, and opens with its line */
+  const choose = (key) => {
+    const c = CHOICES[key]; if (!c || busy) return;
     document.querySelectorAll('.choice').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.choice === key)));
-    mail.href = 'mailto:' + MAIL + '?subject=' + encodeURIComponent(c.subject) + '&body=' + encodeURIComponent(c.body.join('\r\n'));
-    reply.querySelector('.ghost').textContent = c.reply;     /* the live region reads this */
-    hint.textContent = 'Opens your mail app with the subject and a few prompts filled in.';
-    if (quiet) finish(reply); else type(reply, false);
+    subject = c.subject;
     try { history.replaceState(null, '', '?for=' + key); } catch {}
+    send(c.opener, c.offline);
   };
   document.querySelector('.choices').addEventListener('click', (e) => {
-    const b = e.target.closest('.choice'); if (b) choose(b.dataset.choice, false);
+    const b = e.target.closest('.choice'); if (b) choose(b.dataset.choice);
   });
+  form.addEventListener('submit', (e) => { e.preventDefault(); const t = input.value; input.value = ''; send(t); });
 
-  /* arriving with ?for=website (a link from elsewhere) skips straight to that answer */
+  /* arriving with ?for=website (a link from elsewhere) opens with that line */
   const pre = new URLSearchParams(location.search).get('for');
-  if (pre && CHOICES[pre]) choose(pre, true);
+  if (pre && CHOICES[pre]) choose(pre);
   else setTimeout(greet, document.body.classList.contains('arrive') ? 900 : 500);
 })();
 </script>
