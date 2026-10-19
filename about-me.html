@@ -285,10 +285,7 @@
 <!-- The ribbons: bundles of fine lines riding sine waves across the page, in the red orb's
      colours (near-black teal, maroon, crimson, the orb's own red, coral, pale rose). Each
      ribbon twists, so its thickness swells and pinches along its length like a band of
-     silk. Over them float the orb's own bubbles: glossy red spheres, each drawn once to a
-     sprite (a vertical reflection of the orb's teal-to-pink sky, a dark rim, a soft
-     highlight) and bobbed gently. Everything drifts slowly; with reduced motion it draws
-     once and holds. -->
+     silk. They drift slowly; with reduced motion they draw once and hold. -->
 <script>
 (() => {
   const cv = document.getElementById('waves'), cx = cv.getContext('2d');
@@ -302,65 +299,12 @@
     { y:.40, amp:.10, th:.09, lines:22, k:1.95, speed:.055, phase:1.2, from:'#FFB5B8', to:'#FFFFFF', alpha:.70, lw:.8 },
     { y:.63, amp:.14, th:.11, lines:24, k:1.30, speed:.028, phase:5.3, from:'#FF3B4F', to:'#FFC2B8', alpha:.52, lw:.9 },
   ];
-  /* the bubbles: x,y as fractions of the viewport, r as a fraction of its short side,
-     bob = how far they drift (of r), speed in cycles per second, phase */
-  const BUBBLES = [
-    { x:.09, y:.30, r:.075, bob:.35, speed:.040, phase:0.0 },
-    { x:.15, y:.44, r:.045, bob:.45, speed:.055, phase:1.3 },
-    { x:.06, y:.62, r:.110, bob:.25, speed:.030, phase:2.6 },
-    { x:.21, y:.74, r:.055, bob:.40, speed:.048, phase:3.9 },
-    { x:.34, y:.86, r:.070, bob:.30, speed:.036, phase:5.0 },
-    { x:.47, y:.16, r:.040, bob:.50, speed:.060, phase:0.7 },
-    { x:.58, y:.90, r:.052, bob:.38, speed:.044, phase:2.0 },
-    { x:.66, y:.22, r:.085, bob:.28, speed:.034, phase:4.4 },
-    { x:.78, y:.70, r:.060, bob:.42, speed:.050, phase:1.9 },
-    { x:.88, y:.36, r:.125, bob:.22, speed:.027, phase:3.2 },
-    { x:.93, y:.58, r:.048, bob:.46, speed:.058, phase:5.7 },
-    { x:.83, y:.86, r:.090, bob:.30, speed:.038, phase:0.4 },
-    { x:.40, y:.52, r:.036, bob:.55, speed:.065, phase:2.9 },
-    { x:.72, y:.48, r:.030, bob:.60, speed:.070, phase:4.8 },
-  ];
-  /* one glossy sphere, drawn once at a given radius: the orb's bubbles are red glass
-     reflecting a sky that runs from near-black teal at the top to pink at the bottom */
-  const sprite = (r, dpr) => {
-    const pad = Math.ceil(r * .35), size = Math.ceil((r + pad) * 2);
-    const c = document.createElement('canvas'); c.width = c.height = Math.ceil(size * dpr);
-    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const cx = size / 2, cy = size / 2;
-    /* the shadow it casts on the page */
-    g.save(); g.beginPath(); g.arc(cx, cy + r * .12, r * .96, 0, Math.PI * 2);
-    g.fillStyle = 'rgba(60,0,8,.16)'; g.filter = `blur(${Math.max(2, r * .16)}px)`; g.fill(); g.restore();
-    g.save(); g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.clip();
-    /* the reflected sky */
-    const sky = g.createLinearGradient(0, cy - r, 0, cy + r);
-    sky.addColorStop(0.00, '#101F23'); sky.addColorStop(0.30, '#4A0A12'); sky.addColorStop(0.52, '#C8102E');
-    sky.addColorStop(0.78, '#FF5A62'); sky.addColorStop(1.00, '#FFB5B8');
-    g.fillStyle = sky; g.fillRect(cx - r, cy - r, r * 2, r * 2);
-    /* the curve of the sphere: the rim turns dark */
-    const rim = g.createRadialGradient(cx - r * .15, cy - r * .2, r * .25, cx, cy, r);
-    rim.addColorStop(0, 'rgba(255,255,255,0)'); rim.addColorStop(.72, 'rgba(60,0,10,.10)'); rim.addColorStop(1, 'rgba(30,0,6,.70)');
-    g.fillStyle = rim; g.fillRect(cx - r, cy - r, r * 2, r * 2);
-    /* light from the upper left: a soft bloom and a sharp speck */
-    const hi = g.createRadialGradient(cx - r * .38, cy - r * .42, 0, cx - r * .38, cy - r * .42, r * .55);
-    hi.addColorStop(0, 'rgba(255,255,255,.95)'); hi.addColorStop(.25, 'rgba(255,255,255,.55)'); hi.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = hi; g.fillRect(cx - r, cy - r, r * 2, r * 2);
-    g.beginPath(); g.ellipse(cx - r * .42, cy - r * .48, r * .16, r * .09, -.6, 0, Math.PI * 2);
-    g.fillStyle = 'rgba(255,255,255,.92)'; g.fill();
-    /* a thin pink rim light along the bottom right, bounced off the page */
-    g.beginPath(); g.arc(cx, cy, r * .93, Math.PI * .05, Math.PI * .62);
-    g.lineWidth = Math.max(1, r * .06); g.strokeStyle = 'rgba(255,190,195,.75)'; g.stroke();
-    g.restore();
-    return { c, size };
-  };
-  let sprites = [];
   let W = 0, H = 0, dpr = 1, raf = 0, t0 = performance.now();
   const resize = () => {
     dpr = Math.min(devicePixelRatio || 1, 1.5);
     W = innerWidth; H = innerHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const base = Math.min(W, H);
-    sprites = BUBBLES.map(b => sprite(Math.max(8, b.r * base), dpr));
     draw();
   };
   const draw = () => {
@@ -403,15 +347,6 @@
       }
     }
     cx.globalAlpha = 1;
-    /* the bubbles, bobbing on their own slow clocks */
-    const base = Math.min(W, H);
-    BUBBLES.forEach((b, i) => {
-      const sp = sprites[i]; if (!sp) return;
-      const r = b.r * base, w = 2 * Math.PI * b.speed * t + b.phase;
-      const x = b.x * W + Math.sin(w * .7) * r * b.bob * .6;
-      const y = b.y * H + Math.sin(w) * r * b.bob;
-      cx.drawImage(sp.c, x - sp.size / 2, y - sp.size / 2, sp.size, sp.size);
-    });
   };
   const loop = () => { draw(); raf = requestAnimationFrame(loop); };
   addEventListener('resize', resize, { passive: true });
