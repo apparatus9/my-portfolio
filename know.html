@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>What you should know — Ejay Adamo</title>
-<meta name="description" content="The things people ask Ejay Adamo before a project, answered plainly, and how a project goes from hello to launch.">
+<meta name="description" content="How a project with Ejay Adamo goes, from hello to launch and after.">
 <meta name="theme-color" content="#FFFFFF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,10 +15,9 @@
 
   Reached by clicking the pink question-mark orb on the carousel. The orb's tint
   blooms out to cover the screen there, and this page opens under that same
-  pink, then lets it fade onto white. Two things live here, on ribbons of fine
-  pink line: a sheet of questions that answer themselves (pick a pill and the
-  answer types itself in; know.html?q=cost links straight to one), and a rail of
-  how a project goes, five glass steps that light up as you scroll to them.
+  pink, then lets it fade onto white. What lives here, on ribbons of fine pink
+  line, is how a project goes: a rail of five glass steps that light up as you
+  scroll to them.
 
   The glass and ribbon engines are copies of the ones in about-me.html and
   contact.html, with the colours swapped. Change all three when you change one.
@@ -200,39 +199,10 @@
     font-size:11px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--ink-dim);
   }
 
-  /* ---------- the sheet ---------- */
   .page{ justify-items:center }
-  .sheet{
-    width:min(var(--page), 100%);
-    padding:clamp(28px, 5vw, 56px);
-    display:grid; gap:28px; align-content:start;
-  }
-  .greet{ display:grid; gap:10px }
-  /* each line carries the whole text twice: a transparent ghost that sizes the box and is
-     what screen readers get, and an overlay on top that fills in letter by letter */
-  .line{ position:relative }
-  .greet .line{
-    font-weight:700; font-stretch:105%; letter-spacing:-.025em; line-height:1.18;
-    font-size:clamp(22px, 3.2vw, 34px);
-  }
-  .ghost{ color:transparent }
-  .type{ position:absolute; inset:0; color:var(--ink) }
-  .type.on::after{
-    content:""; display:inline-block; width:2px; height:.95em; margin-left:3px;
-    vertical-align:-.12em; background:currentColor; animation:blink 1s steps(1) infinite;
-  }
-  @keyframes blink{ 50%{ opacity:0 } }
-  .ask{ display:grid; gap:14px }
-  .choices{ display:flex; flex-wrap:wrap; gap:9px }
-  /* the answer */
-  .answer{ display:grid }
-  .reply{ font-size:clamp(16px, 2vw, 19px); line-height:1.5; color:var(--ink-dim) }
-  .reply .type{ color:var(--ink-dim) }
-  .reply[hidden]{ display:none }
-  .meta{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--ink-dim) }
 
   /* ---------- the rail: how a project goes ---------- */
-  .rail{ width:min(var(--page), 100%); display:grid; gap:18px; padding-top:12px }
+  .rail{ width:min(var(--page), 100%); display:grid; gap:18px }
   .rail > .eyebrow{ padding-left:60px }
   .steps{ list-style:none; position:relative; display:grid; gap:18px; padding-left:60px }
   .steps::before{                                  /* the rail itself */
@@ -290,10 +260,7 @@
     .node{ left:-48px; width:32px; height:32px; font-size:11px }
   }
   @media (prefers-reduced-motion: reduce){
-    /* the ribbons draw once and hold still, the sheet is simply there, every step is lit: see the scripts */
-    .type{ display:none }
-    .ghost{ color:var(--ink) }
-    .reply .ghost{ color:var(--ink-dim) }
+    /* the ribbons draw once and hold still, and every step is lit: see the scripts */
     .steps::after,.node,.panel,.panel p{ transition:none }
     .rise{ animation:none; opacity:1; transform:none }
     .cover{ transition:none }
@@ -419,69 +386,39 @@
 
 <main class="page">
 
-  <!-- 1. The sheet: questions that answer themselves. -->
-  <article class="glass sheet rise" style="--n:0" aria-labelledby="sheet-eyebrow">
-    <p class="eyebrow" id="sheet-eyebrow">What you should know</p>
-
-    <div class="greet" id="greet">
-      <p class="line"><span class="ghost">Before you write to me, here's what people usually ask.</span><span class="type" aria-hidden="true"></span></p>
-      <p class="line"><span class="ghost">Pick one. I'll answer it straight.</span><span class="type" aria-hidden="true"></span></p>
-    </div>
-
-    <div class="ask">
-      <div class="choices" role="group" aria-label="Questions">
-        <button type="button" class="glass glass--pill q" data-q="time"     aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">How long does it take?</button>
-        <button type="button" class="glass glass--pill q" data-q="cost"     aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">What does it cost?</button>
-        <button type="button" class="glass glass--pill q" data-q="need"     aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">What do you need from me?</button>
-        <button type="button" class="glass glass--pill q" data-q="existing" aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">Will it work with my current site?</button>
-        <button type="button" class="glass glass--pill q" data-q="after"    aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">What happens after launch?</button>
-        <button type="button" class="glass glass--pill q" data-q="fit"      aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">What if it's not your thing?</button>
-        <button type="button" class="glass glass--pill q" data-q="more"     aria-pressed="false" data-chroma="0" data-band="9" data-depth="5">More than websites?</button>
-      </div>
-      <div class="answer" id="answer" aria-live="polite">
-        <p class="line reply" id="reply" hidden><span class="ghost"></span><span class="type" aria-hidden="true"></span></p>
-      </div>
-    </div>
-
-    <div class="meta">
-      <a class="solid" href="contact.html">Ask me something else</a>
-      <span class="place">Toronto, Canada</span>
-    </div>
-  </article>
-
-  <!-- 2. The rail: how a project goes. Each step lights up as you reach it. -->
-  <section class="rail rise" style="--n:1" aria-labelledby="rail-eyebrow">
+  <!-- The rail: how a project goes. Each step lights up as you reach it. -->
+  <section class="rail rise" style="--n:0" aria-labelledby="rail-eyebrow">
     <p class="eyebrow" id="rail-eyebrow">How a project goes</p>
     <ol class="steps" id="steps">
-      <li class="step rise" style="--n:2">
+      <li class="step rise" style="--n:1">
         <span class="node" aria-hidden="true">01</span>
         <article class="glass panel">
           <h2 class="step__h"><span class="eyebrow">01</span> Hello</h2>
           <p>You tell me the goal. A flyer with nowhere to send people, a form that loses leads, a process stuck on paper. One call, and I'll tell you honestly whether I'm the right person for it, roughly what it takes, and how long it'll be.</p>
         </article>
       </li>
-      <li class="step rise" style="--n:3">
+      <li class="step rise" style="--n:2">
         <span class="node" aria-hidden="true">02</span>
         <article class="glass panel">
           <h2 class="step__h"><span class="eyebrow">02</span> Plan</h2>
           <p>We agree on what the page has to do, and what it doesn't. One clear action for the visitor. I look at what you already have so we build on it instead of around it.</p>
         </article>
       </li>
-      <li class="step rise" style="--n:4">
+      <li class="step rise" style="--n:3">
         <span class="node" aria-hidden="true">03</span>
         <article class="glass panel">
           <h2 class="step__h"><span class="eyebrow">03</span> Build</h2>
           <p>You get a live preview link almost from the start. Open it on your phone, tell me what's wrong, watch it change. No big reveal at the end.</p>
         </article>
       </li>
-      <li class="step rise" style="--n:5">
+      <li class="step rise" style="--n:4">
         <span class="node" aria-hidden="true">04</span>
         <article class="glass panel">
           <h2 class="step__h"><span class="eyebrow">04</span> Launch</h2>
           <p>It goes out on Vercel, on your domain, with submissions landing in your inbox. I check it on a slow phone and bad wifi, because that's where your customers are.</p>
         </article>
       </li>
-      <li class="step rise" style="--n:6">
+      <li class="step rise" style="--n:5">
         <span class="node" aria-hidden="true">05</span>
         <article class="glass panel">
           <h2 class="step__h"><span class="eyebrow">05</span> After</h2>
@@ -491,86 +428,17 @@
     </ol>
   </section>
 
-  <footer class="foot rise" style="--n:7">
+  <footer class="foot rise" style="--n:6">
     <span>Ejay Adamo</span>
     <span>What you should know</span>
   </footer>
 
 </main>
 
-<!-- The questions: the intro types itself out; a pill types its answer in. know.html?q=cost
-     opens straight onto an answer. Then the rail: each step lights as you scroll to it. -->
+<!-- The rail: each step lights when it reaches the middle of the screen, and stays lit. -->
 <script>
 (() => {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ANSWERS = {
-    time:     "It depends on what it is. A landing page or a form is a different job from an app with accounts and a database. What I can tell you is you'll see it live on a preview link while it's being built, not at the end, and I'll give you a real estimate once I know the goal.",
-    cost:     "I don't post a price list, because a number without the job attached is a guess. Tell me what you're trying to get done and I'll tell you roughly what it takes and what that costs, before anything starts. If it's smaller than you think, I'll say so.",
-    need:     "The goal, in plain words: what should happen when someone lands on the page. Whatever you already have: a flyer, a logo, photos, the login to your current site. And someone who can open a preview link on their phone and tell me what's wrong. That's most of it.",
-    existing: "Usually, yes. A lot of my work is drop-in sections and forms that slot into whatever platform a business is already on, without a rebuild or a fight with the CMS. If what you have genuinely can't take it, I'll tell you that too.",
-    after:    "It goes live on your domain, submissions land in your inbox, and I write it up so the next person can pick it up without me. If something breaks, tell me. If you want more later, that's a new conversation, not a lock-in.",
-    fit:      "Then I'll say so, and point you to someone it does fit if I know one. I build the unglamorous things that make a business money: pages, forms, small apps, for dealerships, gyms and local businesses. If you need a big agency or a brand studio, you'll hear it from me first.",
-    more:     "Yes. I also do photography, with a small shoot team, and marketing. Often they go together: a shoot, the page it lives on, and the campaign that sends people to it. Websites are still most of what I do.",
-  };
-
-  /* the typewriter: one timer per line, so a new run cancels the old */
-  const timers = new WeakMap();
-  const finish = (line) => {
-    clearTimeout(timers.get(line));
-    const o = line.querySelector('.type');
-    o.textContent = line.querySelector('.ghost').textContent;
-    o.classList.remove('on');
-  };
-  const type = (line, hold, pace = 28, pause = 180) => new Promise((done) => {
-    const text = line.querySelector('.ghost').textContent, o = line.querySelector('.type');
-    clearTimeout(timers.get(line));
-    if (still){ o.textContent = text; done(); return; }
-    o.textContent = ''; o.classList.add('on');
-    let i = 0;
-    const tick = () => {
-      if (i >= text.length){ if (!hold) o.classList.remove('on'); done(); return; }
-      const ch = text[i++]; o.textContent += ch;
-      timers.set(line, setTimeout(tick, /[.,:]/.test(ch) ? pause : pace));
-    };
-    tick();
-  });
-
-  /* the intro, line by line; a click on it or Escape finishes it at once */
-  const lines = [...document.querySelectorAll('.greet .line')];
-  let greeted = false;
-  const greet = async () => {
-    for (let i = 0; i < lines.length && !greeted; i++){
-      await type(lines[i], i === lines.length - 1);
-      if (i < lines.length - 1) await new Promise(r => setTimeout(r, 320));
-    }
-    greeted = true;
-  };
-  const skipGreeting = () => { greeted = true; lines.forEach(finish); };
-  document.getElementById('greet').addEventListener('click', skipGreeting);
-  addEventListener('keydown', (e) => { if (e.key === 'Escape') skipGreeting(); });
-
-  /* a question: press its pill and type the answer in */
-  const reply = document.getElementById('reply');
-  const choose = (key) => {
-    const a = ANSWERS[key]; if (!a) return;
-    skipGreeting(); finish(reply);
-    document.querySelectorAll('.q').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === key)));
-    try { history.replaceState(null, '', '?q=' + key); } catch {}
-    reply.querySelector('.ghost').textContent = a;     /* sizes the box at once; the live region reads it */
-    reply.hidden = false;
-    type(reply, false, 13, 110);
-  };
-  document.querySelector('.choices').addEventListener('click', (e) => {
-    const b = e.target.closest('.q'); if (b) choose(b.dataset.q);
-  });
-  document.getElementById('answer').addEventListener('click', () => finish(reply));
-
-  /* arriving with ?q=cost (a link from elsewhere) opens straight onto that answer */
-  const pre = new URLSearchParams(location.search).get('q');
-  if (pre && ANSWERS[pre]) choose(pre);
-  else setTimeout(greet, document.body.classList.contains('arrive') ? 900 : 500);
-
-  /* the rail: a step lights when it reaches the middle of the screen, and stays lit */
   const steps = [...document.querySelectorAll('.step')], list = document.getElementById('steps');
   const light = (el) => { el.classList.add('lit'); list.style.setProperty('--dot', (el.offsetTop + 32) + 'px'); };
   if (still || !('IntersectionObserver' in window)) steps.forEach(light);
