@@ -4,19 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>More about me — Ejay Adamo</title>
-<meta name="theme-color" content="#B5121F">
+<meta name="theme-color" content="#FFFFFF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
 
 <!--
-  MORE ABOUT ME — the red page.
+  MORE ABOUT ME — the white page.
 
   Reached by clicking the red orb on the carousel. The orb's tint blooms out to
   cover the screen there, and this page opens under that same red, then lets it
-  fade. The page itself is a blank shell in a red take on Apple's Liquid Glass:
-  a deep red sky with slow drifting light behind, and frosted glass panels on
-  top that blur and brighten whatever passes beneath them.
+  fade onto white. The page itself is a blank shell in a light take on Apple's
+  Liquid Glass: a white sky with faint warm light drifting behind, and frosted
+  glass panels on top that blur and lift whatever passes beneath them.
 
   HOW TO FILL IT IN
   - Every dashed box with a label is a .drop: a placeholder. Delete the .drop
@@ -35,14 +35,16 @@
     --coral:    #FF8E6E;
     --rose:     #FFC2B8;
 
-    --ink:      #FFFFFF;
-    --ink-dim:  rgba(255,255,255,.72);
-    --ink-faint:rgba(255,255,255,.46);
+    --paper:    #FFFFFF;
+    --ink:      #0A0A0A;
+    --ink-dim:  rgba(10,10,10,.62);
+    --ink-faint:rgba(10,10,10,.40);
+    --pill:     #F0F0F0;
 
     /* the glass */
     --glass-blur: 30px;
-    --glass-fill: linear-gradient(135deg, rgba(255,255,255,.26), rgba(255,255,255,.07));
-    --glass-fill-hover: linear-gradient(135deg, rgba(255,255,255,.34), rgba(255,255,255,.12));
+    --glass-fill: linear-gradient(135deg, rgba(255,255,255,.64), rgba(255,255,255,.36));
+    --glass-fill-hover: linear-gradient(135deg, rgba(255,255,255,.80), rgba(255,255,255,.52));
     --radius: 28px;
     --radius-sm: 18px;
 
@@ -51,10 +53,10 @@
   }
 
   *{ box-sizing:border-box; margin:0; padding:0 }
-  html{ color-scheme:dark; scroll-behavior:smooth }
+  html{ color-scheme:light; scroll-behavior:smooth }
   html,body{ min-height:100% }
   body{
-    background:var(--red-mid);        /* painted even before the sky layer is up */
+    background:var(--paper);          /* painted even before the sky layer is up */
     color:var(--ink);
     font-family:Archivo, system-ui, sans-serif;
     -webkit-font-smoothing:antialiased;
@@ -70,24 +72,24 @@
   }
   .cover.out{ opacity:0; pointer-events:none }
 
-  /* ---------- the sky: deep red with slow light moving behind the glass ---------- */
+  /* ---------- the sky: white with faint warm light moving behind the glass ---------- */
   .sky{
     position:fixed; inset:0; z-index:-1; overflow:hidden;
     background:
-      radial-gradient(120% 90% at 18% 0%,   #D62B38 0%, rgba(214,43,56,0) 60%),
-      radial-gradient(90% 80%  at 100% 100%, #3E040A 0%, rgba(62,4,10,0) 60%),
-      linear-gradient(160deg, #C1151F 0%, #7F0912 70%, var(--red-deep) 100%);
+      radial-gradient(120% 90% at 18% 0%,   #FFF8F7 0%, rgba(255,248,247,0) 60%),
+      radial-gradient(90% 80%  at 100% 100%, #FFF9F6 0%, rgba(255,249,246,0) 60%),
+      var(--paper);
   }
   .blob{
     position:absolute; border-radius:50%;
-    filter:blur(72px); mix-blend-mode:screen; opacity:.85;
+    filter:blur(72px); opacity:.22;        /* pale tints on white: barely there, just enough for the glass to bend */
     will-change:transform;
     animation:drift var(--t) ease-in-out infinite alternate;
   }
-  .blob--1{ width:56vmax; height:56vmax; left:-14vmax; top:-18vmax; background:#FF5A61; --t:26s }
-  .blob--2{ width:44vmax; height:44vmax; right:-12vmax; top:8vh;    background:var(--coral); --t:31s; animation-delay:-9s }
-  .blob--3{ width:52vmax; height:52vmax; left:18vw;   bottom:-28vmax; background:#FF3B4F; --t:37s; animation-delay:-17s }
-  .blob--4{ width:28vmax; height:28vmax; left:56vw;   top:34vh;    background:var(--rose); opacity:.42; --t:22s; animation-delay:-5s }
+  .blob--1{ width:56vmax; height:56vmax; left:-14vmax; top:-18vmax; background:#FFD4D2; --t:26s }
+  .blob--2{ width:44vmax; height:44vmax; right:-12vmax; top:8vh;    background:#FFE0D0; --t:31s; animation-delay:-9s }
+  .blob--3{ width:52vmax; height:52vmax; left:18vw;   bottom:-28vmax; background:#FFCDD2; --t:37s; animation-delay:-17s }
+  .blob--4{ width:28vmax; height:28vmax; left:56vw;   top:34vh;    background:#FFE9E4; opacity:.16; --t:22s; animation-delay:-5s }
   @keyframes drift{
     from{ transform:translate(0,0) scale(1) }
     to  { transform:translate(6vw,-5vh) scale(1.12) }
@@ -106,26 +108,26 @@
     -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
             backdrop-filter:blur(var(--glass-blur)) saturate(170%);
     box-shadow:
-      inset 0  1px 0 rgba(255,255,255,.50),   /* light catching the top edge */
-      inset 0 -1px 0 rgba(255,255,255,.08),
-      inset 1px 0  0 rgba(255,255,255,.16),
-      0 30px 70px -24px rgba(60,0,8,.60),      /* the panel lifted off the sky */
-      0 2px 8px rgba(60,0,8,.14);
+      inset 0  1px 0 rgba(255,255,255,.95),   /* light catching the top edge */
+      inset 0 -1px 0 rgba(10,10,10,.04),
+      inset 1px 0  0 rgba(255,255,255,.60),
+      0 30px 70px -24px rgba(30,10,12,.18),    /* the panel lifted off the sky */
+      0 2px 8px rgba(30,10,12,.05);
   }
   /* the specular: light pooled toward the top-left, as on Liquid Glass */
   .glass::before{
     content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
     background:
-      radial-gradient(120% 80% at 16% 0%,   rgba(255,255,255,.30), rgba(255,255,255,0) 52%),
-      radial-gradient(60% 50%  at 100% 100%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%);
+      radial-gradient(120% 80% at 16% 0%,   rgba(255,255,255,.70), rgba(255,255,255,0) 52%),
+      radial-gradient(60% 50%  at 100% 100%, rgba(255,255,255,.30), rgba(255,255,255,0) 60%);
   }
   /* the rim: a hairline of refracted light running round the edge */
   .glass::after{
     content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
     padding:1px;
     background:linear-gradient(135deg,
-      rgba(255,255,255,.75) 0%, rgba(255,255,255,.14) 35%,
-      rgba(255,255,255,.08) 65%, rgba(255,255,255,.45) 100%);
+      rgba(255,255,255,.95) 0%, rgba(10,10,10,.10) 35%,
+      rgba(10,10,10,.07) 65%, rgba(255,255,255,.80) 100%);
     -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite:xor;
@@ -134,7 +136,7 @@
   .glass > *{ position:relative; z-index:1 }
   /* no backdrop-filter: lean on a heavier fill so the type still reads */
   @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-    .glass{ background:linear-gradient(135deg, rgba(150,22,34,.86), rgba(110,10,20,.86)) }
+    .glass{ background:linear-gradient(135deg, rgba(255,255,255,.94), rgba(246,246,247,.94)); box-shadow:0 30px 70px -24px rgba(30,10,12,.18), 0 0 0 1px rgba(10,10,10,.06) }
   }
 
   .glass--pill{
@@ -146,15 +148,15 @@
   }
   .glass--pill:hover{ background:var(--glass-fill-hover); transform:translateY(-1px) }
   .glass--pill:active{ transform:translateY(0) scale(.985) }
-  .glass--pill[aria-current="page"]{ background:rgba(255,255,255,.92); color:var(--red-mid) }
+  .glass--pill[aria-current="page"]{ background:var(--ink); color:var(--paper) }
   .solid{
     border-radius:999px; padding:9px 18px; font-size:14px; font-weight:600; text-decoration:none;
-    background:var(--ink); color:var(--red-mid); white-space:nowrap;
-    box-shadow:0 10px 30px -12px rgba(60,0,8,.6);
+    background:var(--ink); color:var(--paper); white-space:nowrap;
+    box-shadow:0 10px 30px -12px rgba(10,10,10,.35);
     transition:transform .35s cubic-bezier(.2,.7,.2,1);
   }
   .solid:hover{ transform:translateY(-1px) }
-  a:focus-visible,button:focus-visible{ outline:2px solid #fff; outline-offset:3px; border-radius:999px }
+  a:focus-visible,button:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; border-radius:999px }
 
   /* ---------- chrome ---------- */
   .bar{
@@ -204,7 +206,7 @@
 
   /* ---------- placeholders: swap each one for the real thing ---------- */
   .drop{
-    border:1.5px dashed rgba(255,255,255,.38); border-radius:var(--radius-sm);
+    border:1.5px dashed rgba(10,10,10,.22); border-radius:var(--radius-sm);
     min-height:120px; height:100%;
     display:grid; place-items:center; text-align:center; padding:20px;
     color:var(--ink-dim); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase;
@@ -238,7 +240,7 @@
 </head>
 <body>
 
-<!-- The red the orb bloomed into. Removed at once unless we arrived from the orb. -->
+<!-- The red the orb bloomed into, fading off onto the white page. Removed at once unless we arrived from the orb. -->
 <div class="cover" id="cover" aria-hidden="true"></div>
 <script>
 (() => {
