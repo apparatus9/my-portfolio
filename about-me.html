@@ -15,8 +15,9 @@
   Reached by clicking the red orb on the carousel. The orb's tint blooms out to
   cover the screen there, and this page opens under that same red, then lets it
   fade onto white. The page itself is a blank shell in a light take on Apple's
-  Liquid Glass: a white sky with faint warm light drifting behind, and frosted
-  glass panels on top that blur and lift whatever passes beneath them.
+  Liquid Glass: a white sky with ribbons of fine red lines flowing behind, in
+  the red orb's own colours, and glass panels on top that bend and frost
+  whatever passes beneath them.
 
   HOW TO FILL IT IN
   - Every dashed box with a label is a .drop: a placeholder. Delete the .drop
@@ -72,42 +73,12 @@
   }
   .cover.out{ opacity:0; pointer-events:none }
 
-  /* ---------- the sky: white with faint warm light moving behind the glass ---------- */
+  /* ---------- the sky: white, with ribbons of red line flowing behind the glass ---------- */
   .sky{
     position:fixed; inset:0; z-index:-1; overflow:hidden;
-    background:
-      radial-gradient(120% 90% at 18% 0%,   #FFF8F7 0%, rgba(255,248,247,0) 60%),
-      radial-gradient(90% 80%  at 100% 100%, #FFF9F6 0%, rgba(255,249,246,0) 60%),
-      var(--paper);
+    background:var(--paper);
   }
-  .blob{
-    position:absolute; border-radius:50%;
-    filter:blur(72px); opacity:.40;        /* pale tints on white: soft, just enough for the glass to bend */
-    will-change:transform;
-    animation:drift var(--t) ease-in-out infinite alternate;
-  }
-  .blob--1{ width:56vmax; height:56vmax; left:-14vmax; top:-18vmax; background:#FFD4D2; --t:26s }
-  .blob--2{ width:44vmax; height:44vmax; right:-12vmax; top:8vh;    background:#FFE0D0; --t:31s; animation-delay:-9s }
-  .blob--3{ width:52vmax; height:52vmax; left:18vw;   bottom:-28vmax; background:#FFCDD2; --t:37s; animation-delay:-17s }
-  .blob--4{ width:28vmax; height:28vmax; left:56vw;   top:34vh;    background:#E6E4FF; opacity:.34; --t:22s; animation-delay:-5s }
-  @keyframes drift{
-    from{ transform:translate(0,0) scale(1) }
-    to  { transform:translate(6vw,-5vh) scale(1.12) }
-  }
-  /* the orbs from the carousel, drifting behind the glass: something real for it to bend */
-  .orb{
-    position:absolute; width:min(46vmax, 640px); aspect-ratio:1; object-fit:contain;
-    clip-path:circle(39.5% at 50% 50%);     /* the poster is a disc on white: cut the white away */
-    will-change:transform;
-    animation:orbdrift var(--t) ease-in-out infinite alternate;
-  }
-  .orb--1{ left:-6vw;  top:4vh;    --t:34s }
-  .orb--2{ right:-8vw; top:-6vh;   --t:41s; animation-delay:-13s }
-  .orb--3{ left:30vw;  bottom:-16vh; --t:38s; animation-delay:-21s }
-  @keyframes orbdrift{
-    from{ transform:translate(0,0) rotate(0deg) }
-    to  { transform:translate(5vw,-6vh) rotate(8deg) }
-  }
+  .waves{ position:absolute; inset:0; width:100%; height:100%; display:block }
   /* a whisper of grain so the big gradients never band */
   .sky::after{
     content:""; position:absolute; inset:0; opacity:.07; mix-blend-mode:overlay; pointer-events:none;
@@ -277,7 +248,7 @@
     .glass--pill,.solid{ font-size:13px; padding:7px 14px } .nav{ gap:6px }
   }
   @media (prefers-reduced-motion: reduce){
-    .blob,.orb{ animation:none }
+    /* the ribbons draw once and hold still: see the script */
     .rise{ animation:none; opacity:1; transform:none }
     .cover{ transition:none }
     html{ scroll-behavior:auto }
@@ -308,14 +279,85 @@
 </script>
 
 <div class="sky" aria-hidden="true">
-  <div class="blob blob--1"></div>
-  <div class="blob blob--2"></div>
-  <div class="blob blob--3"></div>
-  <div class="blob blob--4"></div>
-  <img class="orb orb--1" src="assets/3d/_ref/premium6.webp" alt="" width="1080" height="1080" decoding="async">
-  <img class="orb orb--2" src="assets/3d/_ref/premium10.webp" alt="" width="1080" height="1080" decoding="async">
-  <img class="orb orb--3" src="assets/3d/_ref/premium.webp" alt="" width="1080" height="1080" decoding="async">
+  <canvas class="waves" id="waves"></canvas>
 </div>
+
+<!-- The ribbons: bundles of fine lines riding sine waves across the page, in the red orb's
+     colours (near-black teal, maroon, crimson, the orb's own red, coral, pale rose). Each
+     ribbon twists, so its thickness swells and pinches along its length like a band of
+     silk. They drift slowly; with reduced motion they draw once and hold. -->
+<script>
+(() => {
+  const cv = document.getElementById('waves'), cx = cv.getContext('2d');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const RIBBONS = [
+    /* y: centre (0..1), amp: swing (of height), th: max thickness (of height), lines: strands,
+       k: waves across the width, speed, phase, colours along x, alpha, width of each strand */
+    { y:.50, amp:.16, th:.26, lines:44, k:1.15, speed:.045, phase:0.0, from:'#C8102E', to:'#FF7A6E', alpha:.72, lw:1.0 },
+    { y:.44, amp:.12, th:.14, lines:30, k:1.55, speed:.032, phase:2.1, from:'#12272B', to:'#4A0A12', alpha:.50, lw:.9 },
+    { y:.58, amp:.19, th:.20, lines:36, k:0.85, speed:.038, phase:4.0, from:'#E84E52', to:'#B5121F', alpha:.66, lw:1.0 },
+    { y:.40, amp:.10, th:.09, lines:22, k:1.95, speed:.055, phase:1.2, from:'#FFB5B8', to:'#FFFFFF', alpha:.70, lw:.8 },
+    { y:.63, amp:.14, th:.11, lines:24, k:1.30, speed:.028, phase:5.3, from:'#FF3B4F', to:'#FFC2B8', alpha:.52, lw:.9 },
+  ];
+  let W = 0, H = 0, dpr = 1, raf = 0, t0 = performance.now();
+  const resize = () => {
+    dpr = Math.min(devicePixelRatio || 1, 1.5);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  };
+  const draw = () => {
+    const t = still ? 0 : (performance.now() - t0) / 1000;
+    cx.clearRect(0, 0, W, H);
+    cx.lineCap = 'round';
+    const steps = Math.max(60, Math.round(W / 9));      /* polyline resolution */
+    for (const r of RIBBONS){
+      const g = cx.createLinearGradient(0, 0, W, 0);
+      g.addColorStop(0, r.from); g.addColorStop(1, r.to);
+      cx.strokeStyle = g; cx.lineWidth = r.lw; cx.globalAlpha = r.alpha;
+      const cy = r.y * H, A = r.amp * H, T = r.th * H, ph = r.phase + t * r.speed * 2 * Math.PI;
+      /* the band's centre line and its twist, sampled once per column */
+      const mid = new Float32Array(steps + 1), half = new Float32Array(steps + 1), xs = new Float32Array(steps + 1);
+      for (let i = 0; i <= steps; i++){
+        const u = i / steps, x = -0.08 * W + u * 1.16 * W;
+        const a1 = Math.sin(u * r.k * 2 * Math.PI + ph);
+        const a2 = Math.sin(u * r.k * 4.3 * Math.PI - ph * 1.7 + 1.0) * .35;
+        const a3 = Math.sin(u * r.k * 0.6 * Math.PI + ph * .5 + 2.2) * .5;
+        xs[i] = x; mid[i] = cy + A * (a1 + a2 + a3) / 1.85;
+        /* twist: thickness swells and pinches along the ribbon */
+        const tw = Math.abs(Math.sin(u * r.k * 1.4 * Math.PI + ph * .8 + r.phase));
+        half[i] = T * (0.08 + 0.92 * tw) / 2;
+      }
+      /* a soft fill between the edges, so the strands read as one translucent band */
+      cx.globalAlpha = r.alpha * .24; cx.fillStyle = g;
+      cx.beginPath();
+      for (let i = 0; i <= steps; i++) cx.lineTo(xs[i], mid[i] - half[i]);
+      for (let i = steps; i >= 0; i--) cx.lineTo(xs[i], mid[i] + half[i]);
+      cx.closePath(); cx.fill();
+      /* the strands: densest at the edges, like light catching the fold */
+      cx.globalAlpha = r.alpha;
+      for (let j = 0; j < r.lines; j++){
+        const v = r.lines === 1 ? 0 : (j / (r.lines - 1)) * 2 - 1;        /* -1..1 across the band */
+        const edge = Math.pow(Math.abs(v), 2.2);                            /* bunch toward the edges */
+        const off = Math.sign(v) * (0.15 + 0.85 * edge) * (Math.abs(v) < 0.02 ? 0 : 1);
+        cx.beginPath();
+        for (let i = 0; i <= steps; i++) cx.lineTo(xs[i], mid[i] + off * half[i]);
+        cx.stroke();
+      }
+    }
+    cx.globalAlpha = 1;
+  };
+  const loop = () => { draw(); raf = requestAnimationFrame(loop); };
+  addEventListener('resize', resize, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (still) return;
+    if (document.hidden) cancelAnimationFrame(raf); else loop();
+  });
+  resize();
+  if (!still) loop();
+})();
+</script>
 
 <header class="bar">
   <nav class="nav" aria-label="Site">
