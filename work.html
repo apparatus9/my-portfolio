@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My work — Ejay Adamo</title>
-<meta name="description" content="Landing pages built by Ejay Adamo for Golden Mile Chrysler and others, shown as they really are: the Swinging Lady, the Collision Centre, TTC pricing, Dream Wheels and more.">
+<meta name="description" content="Landing pages built by Ejay Adamo, mostly for Golden Mile Chrysler, shown as they really are. Swipe through: the Swinging Lady, the Collision Centre, TTC pricing, Dream Wheels and more.">
 <meta name="theme-color" content="#FFFFFF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,18 +16,17 @@
   Reached by clicking the emerald orb on the carousel. The orb's tint blooms out
   to cover the screen there, and this page opens under that same green, then
   lets it fade onto white. What lives here, on ribbons of fine green line, is
-  the work: landing pages. One sheet of liquid glass is a monitor, pinned to
-  the screen; beside it runs a rail of the pages, one entry each. Whichever
-  entry sits level with the monitor is the one playing inside it, the real
-  page recorded as it scrolls (or its screenshot), its address in the bar
-  above. The monitor leans toward the pointer; a pane of glass slides down
-  the rail to the live entry. On a phone the monitor pins to the top and the
-  rail scrolls beneath it.
+  the work: landing pages, one at a time. A deck of glass sheets you swipe
+  through sideways (or use the arrows, the dots, or the keyboard). Each sheet
+  is the real page, recorded as it scrolls or shown as a screenshot, with its
+  name and one plain sentence on what it is. The sheet in the middle is the
+  one playing; the neighbours peek in from the sides, smaller and dimmer.
 
-  Everything shown is the actual page from the repo it names. The recordings
-  in assets/work/ were captured from the pages themselves, and each one stops
-  before any photograph of a person. Offers and incentive pages are kept off
-  this page on purpose; they get their own.
+  Deliberately non-technical: no tags, no repo links, nothing to decode.
+  Everything shown is the actual page. The recordings in assets/work/ were
+  captured from the pages themselves, and each one stops before any
+  photograph of a person. Offers and incentive pages are kept off this page
+  on purpose; they get their own.
 -->
 
 <style>
@@ -209,80 +208,63 @@
 
   .page{ justify-items:center }
 
-  /* ---------- the showcase: one monitor, pinned; a rail of pages beside it ---------- */
-  .work{ width:min(var(--page), 100%); display:grid; gap:18px }
-  .intro{ font-size:clamp(16px, 2vw, 19px); line-height:1.5; color:var(--ink-dim); max-width:56ch }
-  .show{ display:grid; grid-template-columns:minmax(0, 7fr) minmax(0, 5fr); gap:clamp(20px, 4vw, 56px); align-items:start; margin-top:10px }
+  /* ---------- the deck: one page at a time, swiped sideways ---------- */
+  .work{ width:min(var(--page), 100%); display:grid; gap:16px }
+  .intro{ font-size:clamp(16px, 2vw, 19px); line-height:1.5; color:var(--ink-dim); max-width:48ch }
+  .top{ display:flex; align-items:end; justify-content:space-between; gap:16px; flex-wrap:wrap }
 
-  /* the monitor */
-  .stage{ position:sticky; top:calc(92px + env(safe-area-inset-top, 0px)); perspective:1400px; z-index:2 }
-  .monitor{
-    padding:10px; display:grid; gap:6px;
-    transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-    transition:transform .6s cubic-bezier(.2,.7,.2,1);
+  /* the controls: a counter and two arrows */
+  .ctl{ display:flex; align-items:center; gap:9px }
+  .count{ font-size:12px; font-weight:600; letter-spacing:.2em; color:var(--ink-faint); margin-right:6px; font-variant-numeric:tabular-nums }
+  .count b{ color:var(--ink); font-weight:600 }
+  .arrow{ width:44px; height:38px; padding:0; display:grid; place-items:center; font-size:18px; line-height:1 }
+  .arrow[disabled]{ opacity:.35; cursor:default }
+
+  /* the deck scrolls sideways and snaps; the scrollbar is hidden, the neighbours peek in from the sides */
+  .deck{
+    list-style:none; display:flex; gap:clamp(14px, 2vw, 24px);
+    overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain;
+    scroll-snap-type:x mandatory; scrollbar-width:none;
+    padding:12px calc((100% - min(100%, 820px)) / 2) 28px;    /* so the first and last sheet can sit in the middle */
+    margin:-12px 0 -12px; width:100%;
+    /* no mask or fade here: a mask would make the deck its own backdrop root and the glass would stop seeing the ribbons */
   }
-  .stage.live .monitor{ transition:transform .15s ease-out }     /* following the pointer */
-  .chrome{ display:flex; align-items:center; gap:6px; padding:4px 6px 2px; min-height:24px }
-  .chrome i{ width:9px; height:9px; border-radius:50%; background:rgba(10,10,10,.14) }
-  .chrome i:first-child{ background:var(--green) }
-  .url{ margin-left:8px; flex:1; min-width:0; display:grid; font-size:12px; font-weight:500; letter-spacing:.02em; color:var(--ink-dim) }
-  .url span{ grid-area:1 / 1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:opacity .35s ease, transform .45s cubic-bezier(.2,.7,.2,1) }
-  .url span:not(.on){ opacity:0; transform:translateY(9px) }
-  .live{ display:flex; align-items:center; gap:6px; font-size:10px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--emerald); opacity:0; transition:opacity .3s }
-  .live.on{ opacity:1 }
-  .live::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--emerald); animation:pulse 2s infinite }
-  @keyframes pulse{ 0%{ box-shadow:0 0 0 0 rgba(46,139,87,.45) } 100%{ box-shadow:0 0 0 9px rgba(46,139,87,0) } }
-  .screen{ position:relative; aspect-ratio:16/10; border-radius:calc(var(--radius-sm) - 4px); overflow:hidden; background:var(--soot); box-shadow:inset 0 0 0 1px rgba(10,10,10,.08) }
-  .frame{ position:absolute; inset:0; margin:0; opacity:0; transform:scale(1.035); transition:opacity .55s ease, transform 1s cubic-bezier(.2,.7,.2,1); pointer-events:none }
-  .frame.on{ opacity:1; transform:none }
-  .frame img,.frame video{ display:block; width:100%; height:100%; object-fit:cover; object-position:top }
-  .frame figcaption{
+  .deck::-webkit-scrollbar{ display:none }
+  .slide{ flex:0 0 min(100%, 820px); scroll-snap-align:center }
+  .sheet{
+    padding:10px 10px 0; display:grid; gap:0;
+    transform:scale(.94); opacity:.55;
+    transition:transform .6s cubic-bezier(.2,.7,.2,1), opacity .6s ease;
+  }
+  .slide.on .sheet{ transform:none; opacity:1 }
+
+  /* the page itself */
+  .screen{ position:relative; aspect-ratio:16/10; border-radius:calc(var(--radius) - 10px) calc(var(--radius) - 10px) 10px 10px; overflow:hidden; background:var(--soot); box-shadow:inset 0 0 0 1px rgba(10,10,10,.08) }
+  .screen img,.screen video{ display:block; width:100%; height:100%; object-fit:cover; object-position:top }
+  .mark{
     position:absolute; left:12px; bottom:12px; display:flex; align-items:center; gap:7px;
     font-size:10px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--pale);
     background:rgba(10,10,10,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); padding:5px 9px; border-radius:6px;
   }
-  .frame--rec figcaption::before{ content:""; width:6px; height:6px; border-radius:50%; background:#FF3B4A; box-shadow:0 0 8px #FF3B4A }
-  .frame--rec::after{ content:""; position:absolute; left:0; bottom:0; height:2px; width:100%; background:var(--sage); transform-origin:0 0; transform:scaleX(var(--p, 0)) }
+  .mark--rec::before{ content:""; width:6px; height:6px; border-radius:50%; background:#FF3B4A; box-shadow:0 0 8px #FF3B4A }
+  .screen::after{ content:""; position:absolute; left:0; bottom:0; height:2px; width:100%; background:var(--sage); transform-origin:0 0; transform:scaleX(var(--p, 0)) }
 
-  /* the rail: one entry per page; the one level with the monitor is the one on screen */
-  .rail{ position:relative; list-style:none; display:grid; gap:4px; padding-block:clamp(24px, 10vh, 110px) }
-  .cursor{                                   /* a pane of glass that slides to the live entry */
-    position:absolute; left:0; right:0; top:var(--top, 0px); height:var(--h, 0px); border-radius:var(--radius-sm);
-    background:var(--glass-fill-hover); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.75), 0 24px 50px -34px rgba(12,30,20,.45);
-    transition:top .65s cubic-bezier(.2,.7,.2,1), height .65s cubic-bezier(.2,.7,.2,1); pointer-events:none; opacity:0;
-  }
-  .cursor.on{ opacity:1 }
-  .item{
-    position:relative; z-index:1; padding:clamp(18px, 2.4vw, 28px); border-radius:var(--radius-sm);
-    display:grid; gap:10px; align-content:center; min-height:min(40vh, 420px); cursor:pointer;
-  }
-  .item > *{ opacity:.38; transition:opacity .5s ease }
-  .item.on > *,.item:hover > *{ opacity:1 }
-  .item h2{ display:flex; gap:12px; align-items:baseline; font-weight:700; font-stretch:105%; letter-spacing:-.02em; font-size:clamp(22px, 2.6vw, 30px) }
-  .no{ font-size:11px; font-weight:600; letter-spacing:.26em; color:var(--ink-dim) }
-  .client{ font-size:14px; color:var(--ink-dim) }
-  .blurb{ font-size:clamp(15px, 1.8vw, 16.5px); line-height:1.5; color:var(--ink-dim) }
-  .tags{ display:flex; flex-wrap:wrap; gap:6px }
-  .tags .tag{
-    font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-dim);
-    padding:4px 10px; border-radius:999px; box-shadow:inset 0 0 0 1px rgba(10,10,10,.16);
-  }
-  .links{ display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding-top:2px }
-  .muted{ font-size:13px; color:var(--ink-faint) }
+  /* the words: the name, one plain sentence, maybe a way in */
+  .cap{ padding:clamp(16px, 2.4vw, 24px) clamp(8px, 1.6vw, 16px) clamp(18px, 2.6vw, 26px); display:grid; gap:8px; align-items:start; grid-template-columns:1fr auto }
+  .cap .eyebrow{ grid-column:1 / -1 }
+  .cap h2{ font-weight:700; font-stretch:105%; letter-spacing:-.02em; font-size:clamp(24px, 3vw, 34px); line-height:1.05 }
+  .what{ grid-column:1; font-size:clamp(15px, 1.9vw, 17.5px); line-height:1.5; color:var(--ink-dim); max-width:52ch }
+  .cap .links{ grid-column:2; grid-row:2 / span 2; align-self:end }
+  .live{ display:inline-flex; align-items:center; gap:6px; color:var(--emerald) }
+  .live::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--emerald); animation:pulse 2s infinite }
+  @keyframes pulse{ 0%{ box-shadow:0 0 0 0 rgba(46,139,87,.45) } 100%{ box-shadow:0 0 0 9px rgba(46,139,87,0) } }
 
-  /* the rest, in brief */
-  .also{ padding:clamp(18px, 3vw, 28px); display:grid; gap:10px; width:100% }
-  .index{ list-style:none; display:grid }
-  .index li{ display:grid; grid-template-columns:auto 1fr auto; gap:4px 14px; align-items:center; padding:12px 0 }
-  .index li + li{ border-top:1px solid rgba(10,10,10,.08) }
-  .index .row{ display:grid; gap:3px }
-  .index .name{ font-weight:700; font-stretch:105%; letter-spacing:-.01em; font-size:clamp(15px, 1.9vw, 17px) }
-  .index .client{ font-size:13px }
-  .index .tags .tag{ font-size:11px; padding:3px 8px }
-  .index .right{ font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-faint); white-space:nowrap }
-  .index .right .glass--pill{ font-size:13px; font-weight:500; letter-spacing:0; text-transform:none; color:var(--ink) }
-  .note{ font-size:14px; line-height:1.5; color:var(--ink-dim); padding-top:6px }
+  /* the dots */
+  .dots{ list-style:none; display:flex; justify-content:center; gap:8px; padding-top:4px }
+  .dots button{ width:26px; height:18px; padding:0; border:0; background:none; cursor:pointer; display:grid; place-items:center; appearance:none }
+  .dots button::before{ content:""; width:7px; height:7px; border-radius:50%; background:rgba(10,10,10,.22); transition:transform .4s cubic-bezier(.2,.7,.2,1), background .3s }
+  .dots button[aria-current="true"]::before{ background:var(--ink); transform:scale(1.35) }
+  .dots button:hover::before{ background:var(--ink-dim) }
 
   footer.foot{
     display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
@@ -300,23 +282,19 @@
   @media (max-width:820px){
     :root{ --radius:22px }
   }
-  @media (max-width:900px){
-    /* one column: the monitor pins to the top, the rail scrolls beneath it */
-    .show{ grid-template-columns:1fr; gap:8px }
-    .stage{ top:calc(66px + env(safe-area-inset-top, 0px)) }
-    .monitor{ padding:8px }
-    .rail{ padding-block:8px 24px }
-    .item{ min-height:0; align-content:start; padding:18px }
-    .item > *{ opacity:.5 }
-  }
   @media (max-width:700px){
     .glass--pill,.solid,button.glass--pill{ font-size:13px; padding:7px 14px } .nav{ gap:6px }
-    .also{ padding:18px }
-    .index li{ grid-template-columns:auto 1fr } .index .right{ grid-column:2 }
+    .deck{ padding-inline:4%; gap:12px }
+    .slide{ flex-basis:92% }
+    .sheet{ padding:7px 7px 0; transform:scale(.96) }
+    .cap{ grid-template-columns:1fr; padding:16px 8px 18px }
+    .cap .links{ grid-column:1; grid-row:auto; align-self:start }
+    .arrow{ width:40px; height:34px }
   }
   @media (prefers-reduced-motion: reduce){
-    /* the ribbons draw once and hold still; the monitor swaps without fading or leaning: see the scripts */
-    .frame,.url span,.cursor,.monitor,.item > *{ transition:none }
+    /* the ribbons draw once and hold still; the deck snaps without easing: see the scripts */
+    .sheet,.dots button::before{ transition:none }
+    .deck{ scroll-behavior:auto }
     .live::before{ animation:none }
     .rise{ animation:none; opacity:1; transform:none }
     .cover{ transition:none }
@@ -443,194 +421,198 @@
 <main class="page">
 
   <section class="work" aria-labelledby="work-eyebrow">
-    <p class="eyebrow rise" style="--n:0" id="work-eyebrow">My work</p>
-    <p class="intro rise" style="--n:0">Landing pages for dealerships and local businesses, most of them for Golden Mile Chrysler. Scroll the list and the monitor shows each page as it really is, recorded from the page itself. Three are live.</p>
-
-    <!-- The showcase: the monitor is pinned; whichever rail entry sits level with it plays inside it. -->
-    <div class="show">
-      <div class="stage rise" style="--n:1" id="stage">
-        <div class="glass monitor">
-          <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="url" id="url"><span class="on">goldenmile-swinging-lady.netlify.app</span></span><span class="live on" id="live">Live</span></div>
-          <div class="screen" id="screen" role="img" aria-label="The selected page, recorded as it scrolls">
-        <figure class="frame frame--rec" data-for="swinging" data-src="assets/work/swinging"><video muted loop playsinline preload="none" poster="assets/work/swinging.jpg" aria-hidden="true"></video><figcaption>Recorded</figcaption></figure>
-        <figure class="frame frame--rec" data-for="collision" data-src="assets/work/collision"><video muted loop playsinline preload="none" poster="assets/work/collision.jpg" aria-hidden="true"></video><figcaption>Recorded</figcaption></figure>
-        <figure class="frame frame--rec" data-for="ttc" data-src="assets/work/ttc"><video muted loop playsinline preload="none" poster="assets/work/ttc.jpg" aria-hidden="true"></video><figcaption>Recorded</figcaption></figure>
-        <figure class="frame frame--rec" data-for="legacy" data-src="assets/work/legacy"><video muted loop playsinline preload="none" poster="assets/work/legacy.jpg" aria-hidden="true"></video><figcaption>Recorded</figcaption></figure>
-        <figure class="frame" data-for="service"><img src="assets/work/service.jpg" alt="" loading="lazy" decoding="async"><figcaption>Screenshot</figcaption></figure>
-        <figure class="frame" data-for="fleet"><img src="assets/work/fleet.jpg" alt="" loading="lazy" decoding="async"><figcaption>Screenshot</figcaption></figure>
-        <figure class="frame" data-for="dream"><img src="assets/dream-wheels.jpg" alt="" loading="lazy" decoding="async"><figcaption>Screenshot</figcaption></figure>
-        <figure class="frame frame--rec" data-for="getfreesol" data-src="assets/video/getfreesol"><video muted loop playsinline preload="none" poster="assets/video/getfreesol.jpg" aria-hidden="true"></video><figcaption>Recorded</figcaption></figure>
-          </div>
-        </div>
+    <div class="top rise" style="--n:0">
+      <div>
+        <p class="eyebrow" id="work-eyebrow">My work</p>
+        <p class="intro">Landing pages I've built, mostly for Golden Mile Chrysler. Swipe through; each one is the real page.</p>
       </div>
-
-      <ol class="rail" id="rail">
-        <div class="cursor" id="cursor" aria-hidden="true"></div>
-      <li class="item rise" style="--n:2" data-key="swinging" data-url="goldenmile-swinging-lady.netlify.app" data-live="1">
-        <h2><span class="no">01</span> The Swinging Lady</h2>
-        <p class="client">Golden Mile Chrysler · Legacy page, live</p>
-        <p class="blurb">The story of the 40-foot billboard that has swung above 1743 Eglinton Avenue East since 1962, and of the campaign run under her today. The artwork swings on a CSS pendulum. One file, plus an eDealer build.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">CSS animation</span><span class="tag">eDealer</span><span class="tag">Netlify</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://goldenmile-swinging-lady.netlify.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a><a class="glass glass--pill" href="https://github.com/apparatus9/golden-mile-swinging-lady" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
-      </li>
-      <li class="item rise" style="--n:3" data-key="collision" data-url="github.com/apparatus9/goldenmile-collision-centre">
-        <h2><span class="no">02</span> Collision Centre</h2>
-        <p class="client">Golden Mile Chrysler · Authorized body shop</p>
-        <p class="blurb">The body shop's page, built to match the printed brochure: the orange and greys were read straight out of the PDF, the photography cropped from its artwork. No build step, with a WordPress embed build alongside.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Brand match</span><span class="tag">WordPress embed</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/goldenmile-collision-centre" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
-      </li>
-      <li class="item rise" style="--n:4" data-key="ttc" data-url="ttc-promo-section · private repository">
-        <h2><span class="no">03</span> TTC Employee Pricing</h2>
-        <p class="client">Golden Mile Chrysler · Promo landing page</p>
-        <p class="blurb">A landing page for the dealership's TTC employee pricing on Dodge, Jeep and Ram, plus fifteen percent off service. Shipped as a drop-in block for the existing D2C Media site, a standalone page, and a booking page with TTC employee verification.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Bootstrap</span><span class="tag">D2C Media embed</span></div>
-        <div class="links"><span class="muted">Private repository · walkthrough on request</span></div>
-      </li>
-      <li class="item rise" style="--n:5" data-key="legacy" data-url="github.com/apparatus9/service-legacy-page">
-        <h2><span class="no">04</span> Thirty Years in the Bay</h2>
-        <p class="client">Service department · Legacy page</p>
-        <p class="blurb">A tribute page for Cass, a technician with more than thirty years in the service bay, written to honour him and to build trust in the department at the same time. Heavy condensed type on dark and bone, one file.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Typography</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/service-legacy-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
-      </li>
-      <li class="item rise" style="--n:6" data-key="service" data-url="github.com/apparatus9/golden-mile-service-page">
-        <h2><span class="no">05</span> Service, Perfected</h2>
-        <p class="client">Service department · Long-form page</p>
-        <p class="blurb">A long page for the service department built around Cass Rehman's forty years in the bay: what the standard is, how a job runs, the three things the shop will never do, and the questions people ask. Serif type, a red rule, one file.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Long-form</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/golden-mile-service-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
-      </li>
-      <li class="item rise" style="--n:6" data-key="fleet" data-url="goldenmile-fleet.vercel.app" data-live="1">
-        <h2><span class="no">06</span> Fleet &amp; Association Programs</h2>
-        <p class="client">Golden Mile Chrysler · Fleet page, live</p>
-        <p class="blurb">Fleet and association programs on one page: eligibility, a dedicated fleet service manager, pick-up and delivery, the vehicles, and a registration form for the fleet desk.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Registration form</span><span class="tag">Vercel</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://goldenmile-fleet.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a></div>
-      </li>
-      <li class="item rise" style="--n:6" data-key="dream" data-url="github.com/apparatus9/dream-wheels-fest-2026">
-        <h2><span class="no">07</span> Dream Wheels</h2>
-        <p class="client">Golden Mile Chrysler · Dream Wheels on Eglinton Fest 2026</p>
-        <p class="blurb">A booth raffle for the 4th annual street festival, in support of SickKids: scan a QR code, enter to win free oil for life. One self-contained file talking to Firestore over REST, with every entry also written to device storage so submissions survive dead venue wifi.</p>
-        <div class="tags"><span class="tag">HTML</span><span class="tag">JavaScript</span><span class="tag">Firestore</span><span class="tag">Offline-resilient</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/dream-wheels-fest-2026" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
-      </li>
-      <li class="item rise" style="--n:6" data-key="getfreesol" data-url="getfreesol.vercel.app" data-live="1">
-        <h2><span class="no">08</span> GetFreeSol &amp; FreeXLM</h2>
-        <p class="client">Personal products · Reward apps, live</p>
-        <p class="blurb">Two small reward apps on one stack: sign up, roll a lucky number once an hour, win a slice of SOL or XLM, withdraw instantly, and earn a cut from referrals. Next.js on Supabase and PostgreSQL.</p>
-        <div class="tags"><span class="tag">Next.js</span><span class="tag">Supabase</span><span class="tag">PostgreSQL</span></div>
-        <div class="links"><a class="glass glass--pill" href="https://getfreesol.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a></div>
-      </li>
-      </ol>
+      <div class="ctl" aria-hidden="true">
+        <span class="count"><b id="cur">01</b> / 08</span>
+        <button type="button" class="glass glass--pill arrow" id="prev" data-chroma="0" data-band="9" data-depth="5">←</button>
+        <button type="button" class="glass glass--pill arrow" id="next" data-chroma="0" data-band="9" data-depth="5">→</button>
+      </div>
     </div>
 
-    <!-- The rest, in brief: pages without a recording here. -->
-    <article class="glass also rise" style="--n:6">
-      <p class="eyebrow">Also built</p>
-      <ol class="index">
-        <li><span class="no">09</span><span class="row"><b class="name">CCAGA members-only offer page</b><span class="client">CCAGA × Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js 15</span><span class="tag">React 19</span><span class="tag">Tailwind v4</span><span class="tag">Resend</span></div></span><span class="right">Client work</span></li>
-        <li><span class="no">10</span><span class="row"><b class="name">Golden Mile Deals campaign site</b><span class="client">Golden Mile Chrysler · Landing site + PWA admin</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Firebase</span><span class="tag">PWA</span></div></span><span class="right">Campaign ended</span></li>
-        <li><span class="no">11</span><span class="row"><b class="name">Car financing pre-qualify page</b><span class="client">Golden Mile Chrysler · Financing</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Pre-qualify form</span></div></span><span class="right"><a class="glass glass--pill" href="https://github.com/apparatus9/financing-page-preview" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></span></li>
-        <li><span class="no">12</span><span class="row"><b class="name">Team page</b><span class="client">Golden Mile Chrysler · Meet-the-team page</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Bootstrap</span><span class="tag">Image pipeline</span></div></span><span class="right"><a class="glass glass--pill" href="https://github.com/apparatus9/-golden-mile-team-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></span></li>
-      </ol>
-      <p class="note">Several of these are private client repositories, so the source isn't public. I'm happy to walk through the code or the live page on a call.</p>
-    </article>
+    <!-- The deck: one sheet per page. Swipe, scroll, press the arrows or the dots, or use the keyboard. -->
+    <ol class="deck rise" style="--n:1" id="deck" aria-label="Pages I've built" tabindex="0">
+      <li class="slide" id="p1" data-key="swinging">
+        <article class="glass sheet" aria-label="The Swinging Lady">
+          <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/swinging.jpg" data-src="assets/work/swinging" aria-label="The Swinging Lady, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
+          <div class="cap">
+            <p class="eyebrow">For Golden Mile Chrysler · <span class="live">Live</span></p>
+            <h2>The Swinging Lady</h2>
+            <p class="what">A story page for a Toronto landmark: the 40-foot lady who has swung above the dealership since 1962.</p>
+            <div class="links"><a class="glass glass--pill" href="https://goldenmile-swinging-lady.netlify.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">See it live ↗</a></div>
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p2" data-key="collision">
+        <article class="glass sheet" aria-label="Collision Centre">
+          <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/collision.jpg" data-src="assets/work/collision" aria-label="Collision Centre, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
+          <div class="cap">
+            <p class="eyebrow">For Golden Mile Chrysler</p>
+            <h2>Collision Centre</h2>
+            <p class="what">The body shop's own page, matched to its printed brochure so the shop feels like one brand online and off.</p>
+            
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p3" data-key="ttc">
+        <article class="glass sheet" aria-label="TTC Employee Pricing">
+          <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/ttc.jpg" data-src="assets/work/ttc" aria-label="TTC Employee Pricing, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
+          <div class="cap">
+            <p class="eyebrow">For Golden Mile Chrysler</p>
+            <h2>TTC Employee Pricing</h2>
+            <p class="what">A page for one offer: special pricing for TTC employees, with a way to book an appointment right there.</p>
+            
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p4" data-key="legacy">
+        <article class="glass sheet" aria-label="Thirty Years in the Bay">
+          <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/legacy.jpg" data-src="assets/work/legacy" aria-label="Thirty Years in the Bay, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
+          <div class="cap">
+            <p class="eyebrow">For a service department</p>
+            <h2>Thirty Years in the Bay</h2>
+            <p class="what">A tribute to a technician with thirty years in the service bay, written to earn trust in the whole department.</p>
+            
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p5" data-key="service">
+        <article class="glass sheet" aria-label="Service, Perfected">
+          <div class="screen"><img src="assets/work/service.jpg" alt="Service, Perfected" loading="lazy" decoding="async"><span class="mark" aria-hidden="true">Screenshot</span></div>
+          <div class="cap">
+            <p class="eyebrow">For a service department</p>
+            <h2>Service, Perfected</h2>
+            <p class="what">A long read on how the service department works, what it promises, and the questions people ask.</p>
+            
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p6" data-key="fleet">
+        <article class="glass sheet" aria-label="Fleet & Association Programs">
+          <div class="screen"><img src="assets/work/fleet.jpg" alt="Fleet & Association Programs" loading="lazy" decoding="async"><span class="mark" aria-hidden="true">Screenshot</span></div>
+          <div class="cap">
+            <p class="eyebrow">For Golden Mile Chrysler · <span class="live">Live</span></p>
+            <h2>Fleet &amp; Association Programs</h2>
+            <p class="what">Fleet programs for businesses, with a sign-up form that goes straight to the fleet desk.</p>
+            <div class="links"><a class="glass glass--pill" href="https://goldenmile-fleet.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">See it live ↗</a></div>
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p7" data-key="dream">
+        <article class="glass sheet" aria-label="Dream Wheels">
+          <div class="screen"><img src="assets/dream-wheels.jpg" alt="Dream Wheels" loading="lazy" decoding="async"><span class="mark" aria-hidden="true">Screenshot</span></div>
+          <div class="cap">
+            <p class="eyebrow">For Golden Mile Chrysler</p>
+            <h2>Dream Wheels</h2>
+            <p class="what">A festival raffle: scan a code at the booth, enter to win free oil for life. It kept taking entries even when the venue wifi dropped.</p>
+            
+          </div>
+        </article>
+      </li>
+      <li class="slide" id="p8" data-key="getfreesol">
+        <article class="glass sheet" aria-label="GetFreeSol">
+          <div class="screen"><video muted loop playsinline preload="none" poster="assets/video/getfreesol.jpg" data-src="assets/video/getfreesol" aria-label="GetFreeSol, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
+          <div class="cap">
+            <p class="eyebrow">A product of my own · <span class="live">Live</span></p>
+            <h2>GetFreeSol</h2>
+            <p class="what">A small app where you roll a number every hour for a chance to win a little crypto.</p>
+            <div class="links"><a class="glass glass--pill" href="https://getfreesol.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">See it live ↗</a></div>
+          </div>
+        </article>
+      </li>
+    </ol>
+    <ol class="dots rise" style="--n:2" id="dots" aria-label="Go to a page">
+      <li><button type="button" data-go="0" aria-label="The Swinging Lady" aria-current="true"></button></li>
+      <li><button type="button" data-go="1" aria-label="Collision Centre"></button></li>
+      <li><button type="button" data-go="2" aria-label="TTC Employee Pricing"></button></li>
+      <li><button type="button" data-go="3" aria-label="Thirty Years in the Bay"></button></li>
+      <li><button type="button" data-go="4" aria-label="Service, Perfected"></button></li>
+      <li><button type="button" data-go="5" aria-label="Fleet & Association Programs"></button></li>
+      <li><button type="button" data-go="6" aria-label="Dream Wheels"></button></li>
+      <li><button type="button" data-go="7" aria-label="GetFreeSol"></button></li>
+    </ol>
   </section>
 
-  <footer class="foot rise" style="--n:7">
+  <footer class="foot rise" style="--n:3">
     <span>Ejay Adamo</span>
     <span>My work</span>
   </footer>
 
 </main>
 
-<!-- The showcase. The rail entry nearest the monitor's level is the live one: its page plays in the
-     monitor, its address slides into the bar, and the pane of glass slides down the rail to it. Clips
-     load the first time they're shown and only play while they're the one on screen. -->
+<!-- The deck. The sheet in the middle is the one on: its clip loads the first time and plays while
+     it's there; the others sit paused. Arrows, dots and the keyboard scroll the deck; the deck's own
+     snapping does the rest. -->
 <script>
 (() => {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const stage = document.getElementById('stage'), monitor = stage.querySelector('.monitor');
-  const items = [...document.querySelectorAll('.item')], frames = [...document.querySelectorAll('.frame')];
-  const urlBox = document.getElementById('url'), live = document.getElementById('live'), cursor = document.getElementById('cursor');
-  let current = null;
+  const deck = document.getElementById('deck'), slides = [...deck.querySelectorAll('.slide')];
+  const dots = [...document.querySelectorAll('#dots button')], cur = document.getElementById('cur');
+  const prev = document.getElementById('prev'), next = document.getElementById('next');
+  let active = -1, heading = -1;          // heading: where the deck is on its way to, while it's still moving
 
-  function show(item){
-    if (item === current) return;
-    current = item;
-    const key = item.dataset.key;
-    items.forEach(i => i.classList.toggle('on', i === item));
-    frames.forEach(f => {
-      const on = f.dataset.for === key;
-      f.classList.toggle('on', on);
-      const v = f.querySelector('video');
+  // once the deck has risen in, drop the entrance animation: an element still under an opacity animation
+  // becomes the glass's backdrop root on some phones, and the sheets stop seeing the ribbons behind them
+  deck.addEventListener('animationend', (e) => { if (e.target === deck) deck.classList.remove('rise'); });
+
+  function setActive(i){
+    if (i === active) return;
+    active = i;
+    if (heading === i) heading = -1;
+    slides.forEach((sl, j) => {
+      sl.classList.toggle('on', j === i);
+      const v = sl.querySelector('video');
       if (!v) return;
-      if (!on){ v.pause(); return; }
+      if (j !== i){ v.pause(); return; }
       if (!v.dataset.loaded){
         v.dataset.loaded = '1';
-        v.innerHTML = `<source src="${f.dataset.src}.webm" type="video/webm"><source src="${f.dataset.src}.mp4" type="video/mp4">`;
+        v.innerHTML = `<source src="${v.dataset.src}.webm" type="video/webm"><source src="${v.dataset.src}.mp4" type="video/mp4">`;
         v.load();
       }
       if (still) return;
-      try { v.currentTime = 0; } catch {}
       const p = v.play(); if (p && p.catch) p.catch(() => {});
     });
-    // the address slides in, the old one slides out
-    const old = urlBox.querySelector('.on');
-    if (!old || old.textContent !== item.dataset.url){
-      const next = document.createElement('span'); next.textContent = item.dataset.url; urlBox.appendChild(next);
-      requestAnimationFrame(() => { next.classList.add('on'); if (old){ old.classList.remove('on'); setTimeout(() => old.remove(), 500); } });
-    }
-    live.classList.toggle('on', item.dataset.live === '1');
-    // the pane of glass slides to the entry
-    cursor.style.setProperty('--top', item.offsetTop + 'px');
-    cursor.style.setProperty('--h', item.offsetHeight + 'px');
-    cursor.classList.add('on');
+    dots.forEach((d, j) => j === i ? d.setAttribute('aria-current', 'true') : d.removeAttribute('aria-current'));
+    cur.textContent = String(i + 1).padStart(2, '0');
+    prev.disabled = i === 0; next.disabled = i === slides.length - 1;
+  }
+  function go(i){
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    heading = i;
+    const sl = slides[i], r = sl.getBoundingClientRect(), d = deck.getBoundingClientRect();
+    deck.scrollBy({ left: (r.left + r.width / 2) - (d.left + d.width / 2), behavior: still ? 'auto' : 'smooth' });
   }
 
-  // where the monitor's level is, on screen: its middle beside the rail, or just under it when it's pinned on top
-  const focal = () => {
-    const r = stage.getBoundingClientRect();
-    return innerWidth > 900 ? r.top + r.height / 2 : r.bottom + Math.min(150, Math.max(60, (innerHeight - r.bottom) / 2));
-  };
-  function pick(){
-    const f = focal(); let best = items[0], d = Infinity;
-    for (const it of items){ const r = it.getBoundingClientRect(); const c = Math.abs(r.top + r.height / 2 - f); if (c < d){ d = c; best = it; } }
-    show(best);
-  }
+  // the sheet nearest the middle of the deck is the one on
   let raf = 0;
+  function pick(){
+    const mid = deck.getBoundingClientRect().left + deck.clientWidth / 2;
+    let best = 0, dist = Infinity;
+    slides.forEach((sl, j) => { const r = sl.getBoundingClientRect(); const c = Math.abs(r.left + r.width / 2 - mid); if (c < dist){ dist = c; best = j; } });
+    setActive(best);
+  }
   const queue = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; pick(); }); };
-  addEventListener('scroll', queue, { passive:true });
+  deck.addEventListener('scroll', queue, { passive:true });
   addEventListener('resize', queue);
 
-  // click an entry: bring it level with the monitor
-  items.forEach(it => it.addEventListener('click', (e) => {
-    if (e.target.closest('a')) return;
-    const r = it.getBoundingClientRect();
-    scrollBy({ top: r.top + r.height / 2 - focal(), behavior: still ? 'auto' : 'smooth' });
-  }));
-
-  // the monitor leans toward the pointer
-  if (!still && matchMedia('(pointer: fine)').matches){
-    monitor.addEventListener('pointermove', (e) => {
-      const r = monitor.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-      stage.classList.add('live');
-      monitor.style.setProperty('--ry', (x * 7).toFixed(2) + 'deg');
-      monitor.style.setProperty('--rx', (-y * 5).toFixed(2) + 'deg');
-    });
-    monitor.addEventListener('pointerleave', () => {
-      stage.classList.remove('live');
-      monitor.style.setProperty('--ry', '0deg'); monitor.style.setProperty('--rx', '0deg');
-    });
-  }
+  const at = () => heading >= 0 ? heading : active;
+  prev.addEventListener('click', () => go(at() - 1));
+  next.addEventListener('click', () => go(at() + 1));
+  dots.forEach(d => d.addEventListener('click', () => go(+d.dataset.go)));
+  slides.forEach((sl, j) => sl.addEventListener('click', (e) => { if (!e.target.closest('a') && j !== active) go(j); }));
+  addEventListener('keydown', (e) => {
+    if (e.target.closest('input, textarea, select')) return;
+    if (e.key === 'ArrowRight'){ go(at() + 1); e.preventDefault(); }
+    if (e.key === 'ArrowLeft'){ go(at() - 1); e.preventDefault(); }
+  });
 
   // a hairline under a playing clip shows how far through it is
-  frames.forEach(f => { const v = f.querySelector('video'); if (v) v.addEventListener('timeupdate', () => { if (v.duration) f.style.setProperty('--p', (v.currentTime / v.duration).toFixed(3)); }); });
+  slides.forEach(sl => { const v = sl.querySelector('video'); if (v) v.addEventListener('timeupdate', () => { if (v.duration) sl.querySelector('.screen').style.setProperty('--p', (v.currentTime / v.duration).toFixed(3)); }); });
 
   pick();
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(queue);
   addEventListener('load', queue);
 })();
 </script>
