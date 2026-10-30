@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My work — Ejay Adamo</title>
-<meta name="description" content="Client sites, dealership tools and small products built by Ejay Adamo, web developer in Toronto.">
+<meta name="description" content="Real pages built by Ejay Adamo for Golden Mile Chrysler and others, recorded as they scroll: offers, collision centre, the Swinging Lady, TTC pricing, Dream Wheels and more.">
 <meta name="theme-color" content="#FFFFFF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,18 +17,14 @@
   to cover the screen there, and this page opens under that same green, then
   lets it fade onto white. What lives here, on ribbons of fine green line, is
   the work: one sheet of liquid glass per project, stacked down the page, each
-  with a short animated demo of the thing (or its screenshot), a few lines on
-  what it does, its tags and a link; then a brief list of the rest, each row
-  with its own small scene.
+  with the real page in it, recorded as it scrolls (or a screenshot of it), a
+  few lines on what it does, its tags and a link; then a brief list of the
+  rest.
 
-  The demos are ES modules in demos/, mounted into the .tile frames by
-  demos/runtime.js, which drives them all from one animation frame loop and
-  animates at most two at a time. Nothing in them is a real person or a real
-  record. See demos/_runtime-contract.md.
-
-  The glass and ribbon engines are copies of the ones in about-me.html,
-  contact.html and know.html, with the colours swapped. Change all four when
-  you change one.
+  Everything shown is the actual page from the repo it names: the recordings
+  in assets/work/ were captured from the pages themselves, and each one stops
+  before any photograph of a person. The recordings are played by demos/video.js
+  through demos/runtime.js, which only runs a clip while it is on screen.
 -->
 
 <style>
@@ -224,7 +220,6 @@
     box-shadow:inset 0 0 0 1px rgba(10,10,10,.06), 0 12px 30px -18px rgba(12,30,20,.35);
   }
   .shot img{ display:block; width:100%; height:auto }
-  .shots{ display:grid; gap:10px }                   /* a screenshot and its demo, stacked */
   /* no screenshot: the name set big, on the orb's own dark */
   .shot--gen{
     aspect-ratio:1512/795; display:grid; align-content:end; gap:6px; padding:clamp(16px, 3vw, 28px);
@@ -236,37 +231,17 @@
   .gen-name{ font-weight:900; font-stretch:62%; font-size:clamp(36px, 7.5vw, 72px); line-height:.95; letter-spacing:-.02em }
   .gen-sub{ font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:rgba(221,233,214,.72) }
 
-  /* ---------- the demos: small animated scenes, mounted into .tile frames by demos/runtime.js ---------- */
-  /* A .demo frame is the dark theatre the scenes were drawn for, in the orb's own colours.
-     The scenes read only these tokens, so this is where their palette lives. */
+  /* ---------- the recordings: real pages, played by demos/video.js inside .tile frames ---------- */
   .demo{
-    --bg:#0E0F0E; --bg-2:#131A14; --surface:rgba(221,233,214,.05);
     --fg:#DDE9D6; --fg-2:rgba(221,233,214,.68); --fg-3:rgba(221,233,214,.46);
-    --rule:rgba(221,233,214,.11); --rule-2:rgba(221,233,214,.22);
-    --ac:#9CC79A; --ac-2:#C9E35A; --ok-c:#4FD08A; --hot:#9CC79A;
-    --ease:cubic-bezier(.22,.7,.2,1);
-    --serif:Archivo, system-ui, sans-serif; --sans:Archivo, system-ui, sans-serif;
+    --rule:rgba(221,233,214,.11); --rule-2:rgba(221,233,214,.22); --ac-2:#9CC79A;
     --mono:ui-monospace, 'Cascadia Mono', Consolas, monospace;
     color:var(--fg);
   }
-  .tile{ position:relative; overflow:hidden; contain:layout paint style; container-type:inline-size; background:var(--bg-2) }
-  /* the scenes were drawn for frames about as wide as the screen; these are a card or a row wide,
-     so the few sizes they take from the viewport are retaken from the frame (cqw) */
-  .demo .dwo-brand{ font-size:13px }
-  .demo .gmp-flyer .brand{ font-size:clamp(9px, 2cqw, 14px) }
-  .demo .gmp-flyer .amt{ font-size:clamp(20px, 5cqw, 48px) }
-  .demo .ttc-face .v{ font-size:clamp(11px, 6cqw, 24px) }
-  .demo .cc-panel b{ font-size:clamp(9px, 4.5cqw, 18px) }
-  .demo .cc-card{ font-size:clamp(5px, 2.6cqw, 6.5px) }
-  .demo .cc-card i{ font-size:clamp(8px, 4.2cqw, 11px) }
-  .demo .sv-top .v{ font-size:clamp(10px, 5.5cqw, 22px) }
-  .demo .rw .n{ font-size:clamp(16px, 8.5cqw, 34px) }
-  .tile:empty::before{            /* while a scene loads: a faint glow, nothing to read */
-    content:""; position:absolute; inset:0;
-    background:radial-gradient(60% 50% at 50% 50%, rgba(156,199,154,.14), transparent 70%);
-  }
-  .tile[data-error]::before{      /* a scene that failed to load says so, quietly */
-    content:"demo unavailable"; display:grid; place-items:center; background:none;
+  .tile{ position:relative; overflow:hidden; contain:layout paint style; background:var(--soot) }
+  .tile:empty::before{ content:""; position:absolute; inset:0; background:radial-gradient(60% 50% at 50% 50%, rgba(156,199,154,.14), transparent 70%) }
+  .tile[data-error]::before{
+    content:"recording unavailable"; display:grid; place-items:center; background:none;
     font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--fg-3);
   }
 
@@ -291,17 +266,19 @@
   .more{ gap:10px }
   .index{ list-style:none; display:grid }
   .index li{
-    display:grid; grid-template-columns:auto 240px 1fr; grid-template-areas:"no shot row" "no shot right";
+    display:grid; grid-template-columns:auto 240px 1fr; grid-template-areas:"no thumb row" "no thumb right";
     gap:6px 14px; align-items:center; padding:12px 0;
   }
-  .index .no{ grid-area:no } .index .mini-shot{ grid-area:shot } .index .row{ grid-area:row; align-self:end } .index .right{ grid-area:right; align-self:start }
-  .index .mini-shot{ aspect-ratio:16/9; border-radius:12px }
-  .index li + li{ border-top:1px solid rgba(10,10,10,.08) }
+  .index li.plain{ grid-template-columns:auto 1fr; grid-template-areas:"no row" "no right" }
+  .index .no{ grid-area:no } .index .thumb{ grid-area:thumb } .index .row{ grid-area:row; align-self:end } .index .right{ grid-area:right; align-self:start }
+  .index .thumb{ aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:var(--pale); box-shadow:inset 0 0 0 1px rgba(10,10,10,.06) }
+  .index .thumb img{ display:block; width:100%; height:100%; object-fit:cover; object-position:top }
   .index .row{ display:grid; gap:3px }
   .index .name{ font-weight:700; font-stretch:105%; letter-spacing:-.01em; font-size:clamp(15px, 1.9vw, 17px) }
   .index .client{ font-size:13px }
   .index .tags .tag{ font-size:11px; padding:3px 8px }
   .index .right{ font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-faint); white-space:nowrap }
+  .index .right .glass--pill{ font-size:13px; font-weight:500; letter-spacing:0; text-transform:none; color:var(--ink) }   /* a link in that slot reads as a pill, not a label */
   .note{ font-size:14px; line-height:1.5; color:var(--ink-dim); padding-top:6px }
 
   footer.foot{
@@ -323,7 +300,8 @@
   @media (max-width:700px){
     .glass--pill,.solid,button.glass--pill{ font-size:13px; padding:7px 14px } .nav{ gap:6px }
     .card{ padding:18px }
-    .index li{ grid-template-columns:auto 1fr; grid-template-areas:"shot shot" "no row" ". right" }
+    .index li{ grid-template-columns:auto 1fr; grid-template-areas:"thumb thumb" "no row" ". right" }
+    .index li.plain{ grid-template-areas:"no row" ". right" }
   }
   @media (prefers-reduced-motion: reduce){
     /* the ribbons draw once and hold still, and every card is lit: see the scripts */
@@ -452,19 +430,64 @@
 
 <main class="page">
 
-  <!-- The stack: one glass card per project, each with its demo, then the rest in brief. -->
+  <!-- The stack: one glass card per project, the real page inside each, then the rest in brief. -->
   <section class="work" aria-labelledby="work-eyebrow">
     <p class="eyebrow rise" style="--n:0" id="work-eyebrow">My work</p>
-    <p class="intro rise" style="--n:0">Pages, forms and small apps for dealerships and local businesses, each with a short demo of what it does. Three are live; the rest I can walk you through.</p>
+    <p class="intro rise" style="--n:0">Pages, forms and small apps for dealerships and local businesses, most of them for Golden Mile Chrysler. Every picture here is the real page, recorded as it scrolls. Three are live; the rest I can walk you through.</p>
     <ol class="projects">
       <li class="project rise" style="--n:1">
         <article class="glass card">
-          <div class="shots">
-            <div class="shot"><img src="assets/dream-wheels.jpg" width="1512" height="795" loading="eager" fetchpriority="high" decoding="async" alt="The Dream Wheels raffle entry page"></div>
-            <div class="shot demo tile" data-demo="dw-offline" data-mode="loop" role="img" aria-label="Animated demonstration: the Dream Wheels entry form keeps accepting entries while the venue wifi is down, then syncs them to Firestore" style="aspect-ratio:16/9.5"></div>
-          </div>
+          <div class="shot demo tile" data-demo="video" data-src="assets/work/incentive" data-poster="assets/work/incentive.jpg" data-label="Current offers & incentives · recorded" data-mode="css" role="img" aria-label="Recording of the Current Offers and Incentives page scrolling through its offers" style="aspect-ratio:16/10"></div>
           <div class="card__head">
-            <h2 class="card__h"><span class="no">01</span> Dream Wheels</h2>
+            <h2 class="card__h"><span class="no">01</span> Current Offers &amp; Incentives</h2>
+            <p class="client">Golden Mile Chrysler Dodge Jeep Ram · Offers landing page</p>
+          </div>
+          <p class="blurb">Six live offers on one page, each with a Claim This Offer button that drops the visitor into a single form with that offer already selected and its eligibility questions revealed. Built twice from the same source: a standalone page with everything inline, and a two-page version pasted into the dealership's eDealer custom pages.</p>
+          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">JavaScript</span><span class="tag">eDealer</span><span class="tag">Claim form</span></div>
+          <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/golden-mile-incentive-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
+        </article>
+      </li>
+      <li class="project rise" style="--n:2">
+        <article class="glass card">
+          <div class="shot demo tile" data-demo="video" data-src="assets/work/collision" data-poster="assets/work/collision.jpg" data-label="Collision centre · recorded" data-mode="css" role="img" aria-label="Recording of the Collision Centre page: the hero, the four promises and the body shop section" style="aspect-ratio:16/10"></div>
+          <div class="card__head">
+            <h2 class="card__h"><span class="no">02</span> Collision Centre</h2>
+            <p class="client">Golden Mile Chrysler · Authorized body shop</p>
+          </div>
+          <p class="blurb">The body shop's own page, built to match the printed Number 7 Repair brochure: the orange and greys were read straight out of the PDF, the photography cropped from the brochure artwork. No build step and no dependencies, with a WordPress embed build alongside the standalone page.</p>
+          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Brand match</span><span class="tag">WordPress embed</span></div>
+          <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/goldenmile-collision-centre" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
+        </article>
+      </li>
+      <li class="project rise" style="--n:3">
+        <article class="glass card">
+          <div class="shot demo tile" data-demo="video" data-src="assets/work/swinging" data-poster="assets/work/swinging.jpg" data-label="The Swinging Lady · recorded" data-mode="css" role="img" aria-label="Recording of The Swinging Lady page: the hero, the landmark story and the wardrobe section" style="aspect-ratio:16/10"></div>
+          <div class="card__head">
+            <h2 class="card__h"><span class="no">03</span> The Swinging Lady</h2>
+            <p class="client">Golden Mile Chrysler · Legacy page, live</p>
+          </div>
+          <p class="blurb">A single page telling the story of the 40-foot billboard that has swung above 1743 Eglinton Avenue East since 1962, and of the campaign run under her today. The artwork swings on a CSS pendulum. Markup, styles and script in one file, plus an eDealer build.</p>
+          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS animation</span><span class="tag">eDealer</span><span class="tag">Netlify</span></div>
+          <div class="links"><a class="glass glass--pill" href="https://goldenmile-swinging-lady.netlify.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a><a class="glass glass--pill" href="https://github.com/apparatus9/golden-mile-swinging-lady" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
+        </article>
+      </li>
+      <li class="project rise" style="--n:4">
+        <article class="glass card">
+          <div class="shot demo tile" data-demo="video" data-src="assets/work/ttc" data-poster="assets/work/ttc.jpg" data-label="TTC employee pricing · recorded" data-mode="css" role="img" aria-label="Recording of the TTC Employee Pricing landing page: the hero, the brands and the two ways to save" style="aspect-ratio:16/10"></div>
+          <div class="card__head">
+            <h2 class="card__h"><span class="no">04</span> TTC Employee Pricing</h2>
+            <p class="client">Golden Mile Chrysler · Promo landing section</p>
+          </div>
+          <p class="blurb">A promotional section for the dealership's TTC employee pricing on Dodge, Jeep and Ram, plus fifteen percent off service. Shipped as a drop-in block scoped to embed in the existing D2C Media Bootstrap site, a standalone preview, and a booking page with a TTC employee verification field, vehicle selector, date and time picker and validation.</p>
+          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Bootstrap</span><span class="tag">D2C Media embed</span></div>
+          <div class="links"><span class="muted">Private repository · walkthrough on request</span></div>
+        </article>
+      </li>
+      <li class="project rise" style="--n:5">
+        <article class="glass card">
+          <div class="shot"><img src="assets/dream-wheels.jpg" width="1512" height="795" loading="lazy" decoding="async" alt="The Dream Wheels raffle entry page"></div>
+          <div class="card__head">
+            <h2 class="card__h"><span class="no">05</span> Dream Wheels</h2>
             <p class="client">Golden Mile Chrysler · Dream Wheels on Eglinton Fest 2026</p>
           </div>
           <p class="blurb">A booth raffle for the 4th annual street festival, in support of SickKids: scan a QR code, enter to win free oil for life. One self-contained HTML file, no framework or build step, talking to Firestore over REST, with every entry also written to device storage so submissions survive dead venue wifi. Ships with a printable QR generator, an admin dashboard and a winner-draw script.</p>
@@ -472,62 +495,54 @@
           <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/dream-wheels-fest-2026" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
         </article>
       </li>
-      <li class="project rise" style="--n:2">
+      <li class="project rise" style="--n:6">
         <article class="glass card">
-          <div class="shot demo tile" data-demo="lsd" data-mode="loop" role="img" aria-label="Animated demonstration: a fictional driver's licence is scanned, its PDF417 barcode decoded, fields extracted by OCR, cross-checked and validated" style="aspect-ratio:16/9.5"></div>
+          <div class="shot demo tile" data-demo="video" data-src="assets/work/legacy" data-poster="assets/work/legacy.jpg" data-label="Thirty years in the bay · recorded" data-mode="css" role="img" aria-label="Recording of the Thirty Years in the Bay page: the hero, the numbers and the standard" style="aspect-ratio:16/10"></div>
           <div class="card__head">
-            <h2 class="card__h"><span class="no">02</span> Licence Scanner</h2>
-            <p class="client">Dealership customer intake</p>
+            <h2 class="card__h"><span class="no">06</span> Thirty Years in the Bay</h2>
+            <p class="client">Service department · Legacy page</p>
           </div>
-          <p class="blurb">Captures a customer's driver's licence on a phone and turns it into a structured record, replacing the photocopier at the sales desk. Decodes the PDF417 barcode in the browser via WebAssembly, falls back to on-device OCR, exports to PDF. An npm-workspaces monorepo: React + Vite client, Express + Prisma + PostgreSQL server, Stripe billing, tested on real phones over a Cloudflare Tunnel.</p>
-          <div class="tags"><span class="tag">React 18</span><span class="tag">TypeScript</span><span class="tag">Prisma</span><span class="tag">Stripe</span><span class="tag">WebAssembly</span><span class="tag">OCR</span></div>
+          <p class="blurb">A tribute page for Cass, a technician with more than thirty years in the service bay, written to honour him and to build trust in the department at the same time. One file, no dependencies, set in heavy condensed type on dark and bone.</p>
+          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Typography</span></div>
+          <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/service-legacy-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
+        </article>
+      </li>
+      <li class="project rise" style="--n:7">
+        <article class="glass card">
+          <div class="shot demo tile" data-demo="video" data-src="assets/work/promos" data-poster="assets/work/promos.jpg" data-label="June service specials · recorded" data-mode="css" role="img" aria-label="Recording of the June Service Specials page: six service offers with Book Now buttons" style="aspect-ratio:16/10"></div>
+          <div class="card__head">
+            <h2 class="card__h"><span class="no">07</span> Service Specials</h2>
+            <p class="client">Golden Mile Chrysler · Monthly service offers</p>
+          </div>
+          <p class="blurb">The month's service specials as a sheet of cards, each with its saving, what's included and a Book Now button, with a second build scoped to drop into the dealership's D2C Media site.</p>
+          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Embeddable</span><span class="tag">CMS integration</span></div>
           <div class="links"><span class="muted">Private repository · walkthrough on request</span></div>
         </article>
       </li>
-      <li class="project rise" style="--n:3">
-        <article class="glass card">
-          <div class="shot demo tile" data-demo="gmd-pwa" data-mode="loop" role="img" aria-label="Animated demonstration: an offer edited on the phone admin updates the showroom display live, and a queued edit publishes when the connection returns" style="aspect-ratio:16/9.5"></div>
-          <div class="card__head">
-            <h2 class="card__h"><span class="no">03</span> Golden Mile Deals</h2>
-            <p class="client">Golden Mile Chrysler · Dealership campaign site</p>
-          </div>
-          <p class="blurb">A promo-driven landing site with a video hero, the vehicle lineup, and dedicated offer flyers for first responders, nurses and firefighters, backed by an admin dashboard built as an installable PWA with a service worker, so staff can manage offers from the showroom floor.</p>
-          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">JS</span><span class="tag">Firebase</span><span class="tag">PWA</span><span class="tag">Service worker</span></div>
-          <div class="links"><a class="glass glass--pill" href="https://golden-mile-deals.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a><span class="muted">Private repo</span></div>
-        </article>
-      </li>
-      <li class="project rise" style="--n:4">
-        <article class="glass card">
-          <div class="shot shot--gen" aria-hidden="true"><span class="gen-name">Team page</span><span class="gen-sub">Portrait compositing · WebP pipeline · Embeddable</span></div>
-          <div class="card__head">
-            <h2 class="card__h"><span class="no">04</span> Team page</h2>
-            <p class="client">Golden Mile Chrysler · Meet-the-team page</p>
-          </div>
-          <p class="blurb">A staff directory covering leadership, sales and service, with composited portraits over a Toronto skyline. Shipped in two builds: a standalone page and a drop-in version scoped to embed cleanly inside the dealership's existing D2C Media site, plus a batch script converting portraits to WebP.</p>
-          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Bootstrap</span><span class="tag">Image pipeline</span></div>
-          <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/-golden-mile-team-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
-        </article>
-      </li>
-      <li class="project rise" style="--n:5">
+      <li class="project rise" style="--n:8">
         <article class="glass card">
           <div class="shot demo tile" data-demo="video" data-src="assets/video/getfreesol" data-poster="assets/video/getfreesol.jpg" data-label="getfreesol.vercel.app · recorded walkthrough" data-mode="css" role="img" aria-label="Recorded walkthrough of the GetFreeSol site" style="aspect-ratio:16/10"></div>
           <div class="card__head">
-            <h2 class="card__h"><span class="no">05</span> GetFreeSol &amp; FreeXLM</h2>
-            <p class="client">Personal products · Reward apps</p>
+            <h2 class="card__h"><span class="no">08</span> GetFreeSol &amp; FreeXLM</h2>
+            <p class="client">Personal products · Reward apps, live</p>
           </div>
           <p class="blurb">Two small reward apps on one stack: sign up, roll a lucky number once an hour, win a slice of SOL or XLM, withdraw instantly, and earn a cut from referrals. Built with Next.js on Supabase and PostgreSQL.</p>
           <div class="tags"><span class="tag">Next.js</span><span class="tag">Supabase</span><span class="tag">PostgreSQL</span></div>
           <div class="links"><a class="glass glass--pill" href="https://getfreesol.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a></div>
         </article>
       </li>
-      <li class="project rise" style="--n:6">
+      <li class="project rise" style="--n:9">
         <article class="glass card more">
           <p class="eyebrow">More, in brief</p>
           <ol class="index">
-            <li><span class="no">06</span><div class="mini-shot demo tile" data-demo="mini" data-scene="ttc" data-mode="css" role="img" aria-label="A price tag flips from MSRP to the TTC employee price"></div><span class="row"><b class="name">TTC Employee Pricing campaign</b><span class="client">Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js</span><span class="tag">TypeScript</span><span class="tag">Resend</span><span class="tag">Bootstrap embed</span></div></span><span class="right">Client work</span></li>
-            <li><span class="no">07</span><div class="mini-shot demo tile" data-demo="mini" data-scene="ccaga" data-mode="css" role="img" aria-label="A member card slides in and unlocks a gated offer panel"></div><span class="row"><b class="name">CCAGA members-only offer page</b><span class="client">CCAGA × Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js 15</span><span class="tag">React 19</span><span class="tag">Tailwind v4</span><span class="tag">Resend</span></div></span><span class="right">Client work</span></li>
-            <li><span class="no">08</span><div class="mini-shot demo tile" data-demo="mini" data-scene="service" data-mode="css" role="img" aria-label="A service coupon tears off along its perforation"></div><span class="row"><b class="name">Service department specials</b><span class="client">Golden Mile Chrysler</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Embeddable</span><span class="tag">CMS integration</span></div></span><span class="right">Client work</span></li>
-            <li><span class="no">09</span><div class="mini-shot demo tile" data-demo="mini" data-scene="recon" data-mode="css" role="img" aria-label="A vehicle moves across a reconditioning board from intake to live"></div><span class="row"><b class="name">Vehicle reconditioning platform</b><span class="client">Dealership SaaS</span><div class="tags"><span class="tag">React</span><span class="tag">Express</span><span class="tag">Prisma</span><span class="tag">JWT auth</span></div></span><span class="right">Private product</span></li>
+            <li><span class="no">09</span><div class="thumb"><img src="assets/work/fleet.jpg" width="1280" height="800" loading="lazy" decoding="async" alt="The Fleet and Association Programs page"></div><span class="row"><b class="name">Fleet &amp; Association Programs</b><span class="client">Golden Mile Chrysler · Fleet page, live</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Registration form</span></div></span><span class="right"><a class="glass glass--pill" href="https://goldenmile-fleet.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit ↗</a></span></li>
+            <li><span class="no">10</span><div class="thumb"><img src="assets/work/service.jpg" width="1280" height="800" loading="lazy" decoding="async" alt="The Service, Perfected page"></div><span class="row"><b class="name">Service, Perfected</b><span class="client">Service department page</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Long-form</span></div></span><span class="right"><a class="glass glass--pill" href="https://github.com/apparatus9/golden-mile-service-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></span></li>
+            <li class="plain"><span class="no">11</span><span class="row"><b class="name">Car financing pre-qualify page</b><span class="client">Golden Mile Chrysler · Financing</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Pre-qualify form</span></div></span><span class="right"><a class="glass glass--pill" href="https://github.com/apparatus9/financing-page-preview" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></span></li>
+            <li class="plain"><span class="no">12</span><span class="row"><b class="name">Golden Mile Deals campaign site</b><span class="client">Golden Mile Chrysler · Landing site + PWA admin</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Firebase</span><span class="tag">PWA</span></div></span><span class="right">Campaign ended</span></li>
+            <li class="plain"><span class="no">13</span><span class="row"><b class="name">Team page</b><span class="client">Golden Mile Chrysler · Meet-the-team page</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Bootstrap</span><span class="tag">Image pipeline</span></div></span><span class="right"><a class="glass glass--pill" href="https://github.com/apparatus9/-golden-mile-team-page" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></span></li>
+            <li class="plain"><span class="no">14</span><span class="row"><b class="name">Licence Scanner</b><span class="client">Dealership customer intake</span><div class="tags"><span class="tag">React</span><span class="tag">TypeScript</span><span class="tag">Prisma</span><span class="tag">Stripe</span><span class="tag">WebAssembly</span><span class="tag">OCR</span></div></span><span class="right">Private product</span></li>
+            <li class="plain"><span class="no">15</span><span class="row"><b class="name">CCAGA members-only offer page</b><span class="client">CCAGA × Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js 15</span><span class="tag">React 19</span><span class="tag">Tailwind v4</span><span class="tag">Resend</span></div></span><span class="right">Client work</span></li>
+            <li class="plain"><span class="no">16</span><span class="row"><b class="name">Vehicle reconditioning platform</b><span class="client">Dealership SaaS</span><div class="tags"><span class="tag">React</span><span class="tag">Express</span><span class="tag">Prisma</span><span class="tag">JWT auth</span></div></span><span class="right">Private product</span></li>
           </ol>
           <p class="note">Several projects are private client repositories, so the source isn't public. I'm happy to walk through the code, architecture, or a live demo on a call.</p>
         </article>
@@ -535,7 +550,7 @@
     </ol>
   </section>
 
-  <footer class="foot rise" style="--n:7">
+  <footer class="foot rise" style="--n:10">
     <span>Ejay Adamo</span>
     <span>My work</span>
   </footer>
@@ -653,7 +668,7 @@
 })();
 </script>
 
-<!-- The demos: demos/runtime.js finds every .tile, loads its scene a screen ahead, and runs at most two at once. -->
+<!-- The recordings: demos/runtime.js finds every .tile, loads demos/video.js a screen ahead, and plays a clip only while it is on screen. -->
 <script type="module" src="demos/runtime.js"></script>
 
 </body>
