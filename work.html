@@ -17,8 +17,14 @@
   to cover the screen there, and this page opens under that same green, then
   lets it fade onto white. What lives here, on ribbons of fine green line, is
   the work: one sheet of liquid glass per project, stacked down the page, each
-  with its screenshot, a few lines on what it does, its tags and a link; then a
-  brief list of the rest.
+  with a short animated demo of the thing (or its screenshot), a few lines on
+  what it does, its tags and a link; then a brief list of the rest, each row
+  with its own small scene.
+
+  The demos are ES modules in demos/, mounted into the .tile frames by
+  demos/runtime.js, which drives them all from one animation frame loop and
+  animates at most two at a time. Nothing in them is a real person or a real
+  record. See demos/_runtime-contract.md.
 
   The glass and ribbon engines are copies of the ones in about-me.html,
   contact.html and know.html, with the colours swapped. Change all four when
@@ -175,21 +181,21 @@
   .solid:hover{ transform:translateY(-1px) }
   a:focus-visible,button:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; border-radius:999px }
 
-  /* ---------- chrome ---------- */
-  .bar{
+  /* ---------- chrome (scoped to the header: the demo scenes use some of these class names too) ---------- */
+  header.bar{
     position:fixed; inset:env(safe-area-inset-top, 0px) 0 auto 0; z-index:10;
     display:flex; align-items:center; justify-content:space-between; gap:12px;
     padding:18px var(--gutter);
     pointer-events:none;
   }
-  .bar > *{ pointer-events:auto }
+  header.bar > *{ pointer-events:auto }
   .nav{ display:flex; gap:9px; flex-wrap:wrap }
-  .back::before{ content:"←"; font-weight:700 }
-  .brand{
+  .nav .back::before{ content:"←"; font-weight:700 }
+  .bar .brand{
     font-weight:900; font-stretch:125%; font-size:19px; letter-spacing:-.04em; white-space:nowrap;
     position:absolute; left:50%; transform:translateX(-50%); color:var(--ink);
   }
-  @media (max-width:920px){ .brand{ display:none } }
+  @media (max-width:920px){ .bar .brand{ display:none } }
 
   /* ---------- the page ---------- */
   .page{
@@ -218,7 +224,7 @@
     box-shadow:inset 0 0 0 1px rgba(10,10,10,.06), 0 12px 30px -18px rgba(12,30,20,.35);
   }
   .shot img{ display:block; width:100%; height:auto }
-  .shot--trim img{ width:106%; max-width:none }    /* pushes a browser scrollbar caught at the edge out of the frame */
+  .shots{ display:grid; gap:10px }                   /* a screenshot and its demo, stacked */
   /* no screenshot: the name set big, on the orb's own dark */
   .shot--gen{
     aspect-ratio:1512/795; display:grid; align-content:end; gap:6px; padding:clamp(16px, 3vw, 28px);
@@ -230,6 +236,40 @@
   .gen-name{ font-weight:900; font-stretch:62%; font-size:clamp(36px, 7.5vw, 72px); line-height:.95; letter-spacing:-.02em }
   .gen-sub{ font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:rgba(221,233,214,.72) }
 
+  /* ---------- the demos: small animated scenes, mounted into .tile frames by demos/runtime.js ---------- */
+  /* A .demo frame is the dark theatre the scenes were drawn for, in the orb's own colours.
+     The scenes read only these tokens, so this is where their palette lives. */
+  .demo{
+    --bg:#0E0F0E; --bg-2:#131A14; --surface:rgba(221,233,214,.05);
+    --fg:#DDE9D6; --fg-2:rgba(221,233,214,.68); --fg-3:rgba(221,233,214,.46);
+    --rule:rgba(221,233,214,.11); --rule-2:rgba(221,233,214,.22);
+    --ac:#9CC79A; --ac-2:#C9E35A; --ok-c:#4FD08A; --hot:#9CC79A;
+    --ease:cubic-bezier(.22,.7,.2,1);
+    --serif:Archivo, system-ui, sans-serif; --sans:Archivo, system-ui, sans-serif;
+    --mono:ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    color:var(--fg);
+  }
+  .tile{ position:relative; overflow:hidden; contain:layout paint style; container-type:inline-size; background:var(--bg-2) }
+  /* the scenes were drawn for frames about as wide as the screen; these are a card or a row wide,
+     so the few sizes they take from the viewport are retaken from the frame (cqw) */
+  .demo .dwo-brand{ font-size:13px }
+  .demo .gmp-flyer .brand{ font-size:clamp(9px, 2cqw, 14px) }
+  .demo .gmp-flyer .amt{ font-size:clamp(20px, 5cqw, 48px) }
+  .demo .ttc-face .v{ font-size:clamp(11px, 6cqw, 24px) }
+  .demo .cc-panel b{ font-size:clamp(9px, 4.5cqw, 18px) }
+  .demo .cc-card{ font-size:clamp(5px, 2.6cqw, 6.5px) }
+  .demo .cc-card i{ font-size:clamp(8px, 4.2cqw, 11px) }
+  .demo .sv-top .v{ font-size:clamp(10px, 5.5cqw, 22px) }
+  .demo .rw .n{ font-size:clamp(16px, 8.5cqw, 34px) }
+  .tile:empty::before{            /* while a scene loads: a faint glow, nothing to read */
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(60% 50% at 50% 50%, rgba(156,199,154,.14), transparent 70%);
+  }
+  .tile[data-error]::before{      /* a scene that failed to load says so, quietly */
+    content:"demo unavailable"; display:grid; place-items:center; background:none;
+    font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--fg-3);
+  }
+
   .card__head{ display:grid; gap:4px }
   .card__h{
     display:flex; gap:12px; align-items:baseline;
@@ -240,7 +280,7 @@
   .blurb{ font-size:clamp(15px, 1.9vw, 17px); line-height:1.5; color:var(--ink-faint); transition:color .6s ease }
   .project.lit .blurb{ color:var(--ink-dim) }
   .tags{ display:flex; flex-wrap:wrap; gap:6px }
-  .tag{
+  .tags .tag{
     font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-dim);
     padding:4px 10px; border-radius:999px; box-shadow:inset 0 0 0 1px rgba(10,10,10,.16);
   }
@@ -250,7 +290,12 @@
   /* the brief list */
   .more{ gap:10px }
   .index{ list-style:none; display:grid }
-  .index li{ display:grid; grid-template-columns:auto 1fr auto; gap:4px 14px; align-items:center; padding:12px 0 }
+  .index li{
+    display:grid; grid-template-columns:auto 240px 1fr; grid-template-areas:"no shot row" "no shot right";
+    gap:6px 14px; align-items:center; padding:12px 0;
+  }
+  .index .no{ grid-area:no } .index .mini-shot{ grid-area:shot } .index .row{ grid-area:row; align-self:end } .index .right{ grid-area:right; align-self:start }
+  .index .mini-shot{ aspect-ratio:16/9; border-radius:12px }
   .index li + li{ border-top:1px solid rgba(10,10,10,.08) }
   .index .row{ display:grid; gap:3px }
   .index .name{ font-weight:700; font-stretch:105%; letter-spacing:-.01em; font-size:clamp(15px, 1.9vw, 17px) }
@@ -259,7 +304,7 @@
   .index .right{ font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-faint); white-space:nowrap }
   .note{ font-size:14px; line-height:1.5; color:var(--ink-dim); padding-top:6px }
 
-  .foot{
+  footer.foot{
     display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
     padding:8px var(--gutter) 0;
     font-size:11px; font-weight:500; letter-spacing:.24em; text-transform:uppercase; color:var(--ink-faint);
@@ -278,7 +323,7 @@
   @media (max-width:700px){
     .glass--pill,.solid,button.glass--pill{ font-size:13px; padding:7px 14px } .nav{ gap:6px }
     .card{ padding:18px }
-    .index li{ grid-template-columns:auto 1fr } .index .right{ grid-column:2 }
+    .index li{ grid-template-columns:auto 1fr; grid-template-areas:"shot shot" "no row" ". right" }
   }
   @media (prefers-reduced-motion: reduce){
     /* the ribbons draw once and hold still, and every card is lit: see the scripts */
@@ -407,14 +452,17 @@
 
 <main class="page">
 
-  <!-- The stack: one glass card per project, then the rest in brief. -->
+  <!-- The stack: one glass card per project, each with its demo, then the rest in brief. -->
   <section class="work" aria-labelledby="work-eyebrow">
     <p class="eyebrow rise" style="--n:0" id="work-eyebrow">My work</p>
-    <p class="intro rise" style="--n:0">Pages, forms and small apps for dealerships, gyms and local businesses. Three are live; the rest I can walk you through.</p>
+    <p class="intro rise" style="--n:0">Pages, forms and small apps for dealerships and local businesses, each with a short demo of what it does. Three are live; the rest I can walk you through.</p>
     <ol class="projects">
       <li class="project rise" style="--n:1">
         <article class="glass card">
-          <div class="shot"><img src="assets/dream-wheels.jpg" width="1512" height="795" loading="eager" fetchpriority="high" decoding="async" alt="The Dream Wheels raffle entry page"></div>
+          <div class="shots">
+            <div class="shot"><img src="assets/dream-wheels.jpg" width="1512" height="795" loading="eager" fetchpriority="high" decoding="async" alt="The Dream Wheels raffle entry page"></div>
+            <div class="shot demo tile" data-demo="dw-offline" data-mode="loop" role="img" aria-label="Animated demonstration: the Dream Wheels entry form keeps accepting entries while the venue wifi is down, then syncs them to Firestore" style="aspect-ratio:16/9.5"></div>
+          </div>
           <div class="card__head">
             <h2 class="card__h"><span class="no">01</span> Dream Wheels</h2>
             <p class="client">Golden Mile Chrysler · Dream Wheels on Eglinton Fest 2026</p>
@@ -426,7 +474,7 @@
       </li>
       <li class="project rise" style="--n:2">
         <article class="glass card">
-          <div class="shot shot--gen" aria-hidden="true"><span class="gen-name">Licence Scanner</span><span class="gen-sub">PDF417 + OCR · React · Express · Stripe</span></div>
+          <div class="shot demo tile" data-demo="lsd" data-mode="loop" role="img" aria-label="Animated demonstration: a fictional driver's licence is scanned, its PDF417 barcode decoded, fields extracted by OCR, cross-checked and validated" style="aspect-ratio:16/9.5"></div>
           <div class="card__head">
             <h2 class="card__h"><span class="no">02</span> Licence Scanner</h2>
             <p class="client">Dealership customer intake</p>
@@ -438,7 +486,7 @@
       </li>
       <li class="project rise" style="--n:3">
         <article class="glass card">
-          <div class="shot shot--gen" aria-hidden="true"><span class="gen-name">Golden Mile Deals</span><span class="gen-sub">Campaign site · PWA admin · Live</span></div>
+          <div class="shot demo tile" data-demo="gmd-pwa" data-mode="loop" role="img" aria-label="Animated demonstration: an offer edited on the phone admin updates the showroom display live, and a queued edit publishes when the connection returns" style="aspect-ratio:16/9.5"></div>
           <div class="card__head">
             <h2 class="card__h"><span class="no">03</span> Golden Mile Deals</h2>
             <p class="client">Golden Mile Chrysler · Dealership campaign site</p>
@@ -450,7 +498,7 @@
       </li>
       <li class="project rise" style="--n:4">
         <article class="glass card">
-          <div class="shot shot--trim"><img src="assets/golden-mile-team.jpg" width="1512" height="515" loading="lazy" decoding="async" alt="The Golden Mile Chrysler team page: portraits over the Toronto skyline"></div>
+          <div class="shot shot--gen" aria-hidden="true"><span class="gen-name">Team page</span><span class="gen-sub">Portrait compositing · WebP pipeline · Embeddable</span></div>
           <div class="card__head">
             <h2 class="card__h"><span class="no">04</span> Team page</h2>
             <p class="client">Golden Mile Chrysler · Meet-the-team page</p>
@@ -462,25 +510,24 @@
       </li>
       <li class="project rise" style="--n:5">
         <article class="glass card">
-          <div class="shot"><img src="assets/empire-fitness.jpg" width="1512" height="795" loading="lazy" decoding="async" alt="The Empire Fitness signup page redesign"></div>
+          <div class="shot demo tile" data-demo="video" data-src="assets/video/getfreesol" data-poster="assets/video/getfreesol.jpg" data-label="getfreesol.vercel.app · recorded walkthrough" data-mode="css" role="img" aria-label="Recorded walkthrough of the GetFreeSol site" style="aspect-ratio:16/10"></div>
           <div class="card__head">
-            <h2 class="card__h"><span class="no">05</span> Empire Fitness</h2>
-            <p class="client">Signup page redesign</p>
+            <h2 class="card__h"><span class="no">05</span> GetFreeSol &amp; FreeXLM</h2>
+            <p class="client">Personal products · Reward apps</p>
           </div>
-          <p class="blurb">A redesign proposal for the gym's GymMaster signup page, rebuilt around a single clear path to joining. Plans and pricing mirror the live portal, so the page could drop straight into the existing flow.</p>
-          <div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Conversion design</span></div>
-          <div class="links"><a class="glass glass--pill" href="https://github.com/apparatus9/empire-fitness-signup-redesign" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">GitHub ↗</a></div>
+          <p class="blurb">Two small reward apps on one stack: sign up, roll a lucky number once an hour, win a slice of SOL or XLM, withdraw instantly, and earn a cut from referrals. Built with Next.js on Supabase and PostgreSQL.</p>
+          <div class="tags"><span class="tag">Next.js</span><span class="tag">Supabase</span><span class="tag">PostgreSQL</span></div>
+          <div class="links"><a class="glass glass--pill" href="https://getfreesol.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit live site ↗</a></div>
         </article>
       </li>
       <li class="project rise" style="--n:6">
         <article class="glass card more">
           <p class="eyebrow">More, in brief</p>
           <ol class="index">
-            <li><span class="no">06</span><span class="row"><b class="name">TTC Employee Pricing campaign</b><span class="client">Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js</span><span class="tag">TypeScript</span><span class="tag">Resend</span><span class="tag">Bootstrap embed</span></div></span><span class="right">Client work</span></li>
-            <li><span class="no">07</span><span class="row"><b class="name">CCAGA members-only offer page</b><span class="client">CCAGA × Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js 15</span><span class="tag">React 19</span><span class="tag">Tailwind v4</span><span class="tag">Resend</span></div></span><span class="right">Client work</span></li>
-            <li><span class="no">08</span><span class="row"><b class="name">Service department specials</b><span class="client">Golden Mile Chrysler</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Embeddable</span><span class="tag">CMS integration</span></div></span><span class="right">Client work</span></li>
-            <li><span class="no">09</span><span class="row"><b class="name">Vehicle reconditioning platform</b><span class="client">Dealership SaaS</span><div class="tags"><span class="tag">React</span><span class="tag">Express</span><span class="tag">Prisma</span><span class="tag">JWT auth</span></div></span><span class="right">Private product</span></li>
-            <li><span class="no">10</span><span class="row"><b class="name">GetFreeSol &amp; FreeXLM reward apps</b><span class="client">Personal products</span><div class="tags"><span class="tag">Next.js</span><span class="tag">Supabase</span><span class="tag">PostgreSQL</span></div></span><span class="right"><a class="glass glass--pill" href="https://getfreesol.vercel.app" target="_blank" rel="noopener" data-chroma="0" data-band="9" data-depth="5">Visit ↗</a></span></li>
+            <li><span class="no">06</span><div class="mini-shot demo tile" data-demo="mini" data-scene="ttc" data-mode="css" role="img" aria-label="A price tag flips from MSRP to the TTC employee price"></div><span class="row"><b class="name">TTC Employee Pricing campaign</b><span class="client">Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js</span><span class="tag">TypeScript</span><span class="tag">Resend</span><span class="tag">Bootstrap embed</span></div></span><span class="right">Client work</span></li>
+            <li><span class="no">07</span><div class="mini-shot demo tile" data-demo="mini" data-scene="ccaga" data-mode="css" role="img" aria-label="A member card slides in and unlocks a gated offer panel"></div><span class="row"><b class="name">CCAGA members-only offer page</b><span class="client">CCAGA × Golden Mile Chrysler</span><div class="tags"><span class="tag">Next.js 15</span><span class="tag">React 19</span><span class="tag">Tailwind v4</span><span class="tag">Resend</span></div></span><span class="right">Client work</span></li>
+            <li><span class="no">08</span><div class="mini-shot demo tile" data-demo="mini" data-scene="service" data-mode="css" role="img" aria-label="A service coupon tears off along its perforation"></div><span class="row"><b class="name">Service department specials</b><span class="client">Golden Mile Chrysler</span><div class="tags"><span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">Embeddable</span><span class="tag">CMS integration</span></div></span><span class="right">Client work</span></li>
+            <li><span class="no">09</span><div class="mini-shot demo tile" data-demo="mini" data-scene="recon" data-mode="css" role="img" aria-label="A vehicle moves across a reconditioning board from intake to live"></div><span class="row"><b class="name">Vehicle reconditioning platform</b><span class="client">Dealership SaaS</span><div class="tags"><span class="tag">React</span><span class="tag">Express</span><span class="tag">Prisma</span><span class="tag">JWT auth</span></div></span><span class="right">Private product</span></li>
           </ol>
           <p class="note">Several projects are private client repositories, so the source isn't public. I'm happy to walk through the code, architecture, or a live demo on a call.</p>
         </article>
@@ -605,6 +652,9 @@
   document.querySelectorAll('.glass').forEach(el => new Lens(el));
 })();
 </script>
+
+<!-- The demos: demos/runtime.js finds every .tile, loads its scene a screen ahead, and runs at most two at once. -->
+<script type="module" src="demos/runtime.js"></script>
 
 </body>
 </html>
