@@ -20,7 +20,11 @@
   through sideways (or use the arrows, the dots, or the keyboard). Each sheet
   is the real page, recorded as it scrolls or shown as a screenshot, with its
   name and one plain sentence on what it is. The sheet in the middle is the
-  one playing; the neighbours peek in from the sides, smaller and dimmer.
+  one playing; the neighbours peek in from the sides, smaller, dimmer and
+  turned a little away, like cards fanned on a table, and the words on each
+  sheet settle into place as it arrives. A headline above says how many and
+  that they're real; a line below the deck is the way in for anyone who
+  wants one of their own.
 
   Deliberately non-technical: no tags, no repo links, nothing to decode.
   Everything shown is the actual page. The recordings in assets/work/ were
@@ -199,7 +203,7 @@
   .page{
     width:min(var(--page), 100% - 2 * var(--gutter));
     margin:0 auto;
-    padding-block:calc(112px + env(safe-area-inset-top, 0px)) 96px;
+    padding-block:calc(100px + env(safe-area-inset-top, 0px)) 96px;
     display:grid; gap:20px;
   }
   .eyebrow{
@@ -210,8 +214,10 @@
 
   /* ---------- the deck: one page at a time, swiped sideways ---------- */
   .work{ width:min(var(--page), 100%); display:grid; gap:16px }
-  .intro{ font-size:clamp(16px, 2vw, 19px); line-height:1.5; color:var(--ink-dim); max-width:48ch }
-  .top{ display:flex; align-items:end; justify-content:space-between; gap:16px; flex-wrap:wrap }
+  .title{ font-weight:900; font-stretch:125%; letter-spacing:-.04em; font-size:clamp(30px, 4.4vw, 50px); line-height:1; text-wrap:balance; margin-top:8px }
+  .intro{ font-size:clamp(15px, 1.5vw, 17px); line-height:1.5; color:var(--ink-dim); max-width:40ch; text-wrap:pretty }
+  .top{ display:grid; grid-template-columns:1fr auto; align-items:end; gap:14px 40px }
+  .top .lead{ display:grid; gap:14px; justify-items:start }
 
   /* the controls: a counter and two arrows */
   .ctl{ display:flex; align-items:center; gap:9px }
@@ -230,13 +236,18 @@
     /* no mask or fade here: a mask would make the deck its own backdrop root and the glass would stop seeing the ribbons */
   }
   .deck::-webkit-scrollbar{ display:none }
-  .slide{ flex:0 0 min(100%, 820px); scroll-snap-align:center }
-  .sheet{
-    padding:10px 10px 0; display:grid; gap:0;
-    transform:scale(.94); opacity:.55;
-    transition:transform .6s cubic-bezier(.2,.7,.2,1), opacity .6s ease;
+  /* each sheet is turned a little toward the middle and flattens as it arrives there, like cards fanned
+     on a table: --off is how many sheets it is from the middle (signed), --near is 1 there and 0 one
+     sheet away. The deck script sets both on every scroll frame, so the swipe itself drives the turn. */
+  .slide{
+    flex:0 0 min(100%, 820px); scroll-snap-align:center; position:relative; --off:0; --near:1;
+    --turn:perspective(1600px) rotateY(calc(var(--off) * -6deg)) scale(calc(.93 + .07 * var(--near)));
   }
-  .slide.on .sheet{ transform:none; opacity:1 }
+  .slide::before{   /* the shadow the sheet in the middle casts, fading as it turns away */
+    content:""; position:absolute; inset:16px 12px 0; border-radius:var(--radius); pointer-events:none;
+    box-shadow:0 30px 60px -30px rgba(31,77,46,.30); opacity:var(--near); transform:var(--turn);
+  }
+  .sheet{ padding:10px 10px 0; display:grid; gap:0; transform:var(--turn); opacity:calc(.5 + .5 * var(--near)) }
 
   /* the page itself */
   .screen{ position:relative; aspect-ratio:16/10; border-radius:calc(var(--radius) - 10px) calc(var(--radius) - 10px) 10px 10px; overflow:hidden; background:var(--soot); box-shadow:inset 0 0 0 1px rgba(10,10,10,.08) }
@@ -252,6 +263,9 @@
   /* the words: the name, one plain sentence, maybe a way in */
   .cap{ padding:clamp(16px, 2.4vw, 24px) clamp(8px, 1.6vw, 16px) clamp(18px, 2.6vw, 26px); display:grid; gap:8px; align-items:start; grid-template-columns:1fr auto }
   .cap .eyebrow{ grid-column:1 / -1 }
+  .cap > *{ transition:transform .55s cubic-bezier(.2,.7,.2,1), opacity .55s ease }
+  .cap h2{ transition-delay:40ms } .cap .what{ transition-delay:90ms } .cap .links{ transition-delay:140ms }
+  .slide:not(.on) .cap > *{ transform:translateY(7px); opacity:.6 }
   .cap h2{ font-weight:700; font-stretch:105%; letter-spacing:-.02em; font-size:clamp(24px, 3vw, 34px); line-height:1.05 }
   .what{ grid-column:1; font-size:clamp(15px, 1.9vw, 17.5px); line-height:1.5; color:var(--ink-dim); max-width:52ch }
   .cap .links{ grid-column:2; grid-row:2 / span 2; align-self:end }
@@ -262,9 +276,17 @@
   /* the dots */
   .dots{ list-style:none; display:flex; justify-content:center; gap:8px; padding-top:4px }
   .dots button{ width:26px; height:18px; padding:0; border:0; background:none; cursor:pointer; display:grid; place-items:center; appearance:none }
-  .dots button::before{ content:""; width:7px; height:7px; border-radius:50%; background:rgba(10,10,10,.22); transition:transform .4s cubic-bezier(.2,.7,.2,1), background .3s }
-  .dots button[aria-current="true"]::before{ background:var(--ink); transform:scale(1.35) }
+  .dots button::before{ content:""; width:7px; height:7px; border-radius:999px; background:rgba(10,10,10,.22); transition:width .45s cubic-bezier(.2,.7,.2,1), background .3s }
+  .dots button[aria-current="true"]::before{ background:var(--ink); width:24px }
   .dots button:hover::before{ background:var(--ink-dim) }
+
+  /* on a touchscreen, one line says how, until the first swipe */
+  .hint{ display:none; text-align:center; font-size:12px; letter-spacing:.06em; color:var(--ink-faint) }
+  @media (hover:none) and (pointer:coarse){ .work:not(.moved) .hint{ display:block } }
+
+  /* the way in, for anyone who wants one of these */
+  .after{ display:flex; align-items:center; justify-content:center; gap:10px 18px; flex-wrap:wrap; padding-top:32px; text-align:center }
+  .after p{ font-size:clamp(17px, 2.2vw, 22px); font-weight:700; font-stretch:105%; letter-spacing:-.02em; text-wrap:balance }
 
   footer.foot{
     display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
@@ -286,14 +308,19 @@
     .glass--pill,.solid,button.glass--pill{ font-size:13px; padding:7px 14px } .nav{ gap:6px }
     .deck{ padding-inline:4%; gap:12px }
     .slide{ flex-basis:92% }
-    .sheet{ padding:7px 7px 0; transform:scale(.96) }
+    .top{ grid-template-columns:1fr }
+    .slide{ --turn:perspective(1200px) rotateY(calc(var(--off) * -5deg)) scale(calc(.95 + .05 * var(--near))) }
+    .slide::before{ box-shadow:0 20px 40px -24px rgba(31,77,46,.26) }
+    .sheet{ padding:7px 7px 0 }
+    .after{ padding-top:20px }
     .cap{ grid-template-columns:1fr; padding:16px 8px 18px }
     .cap .links{ grid-column:1; grid-row:auto; align-self:start }
     .arrow{ width:40px; height:34px }
   }
   @media (prefers-reduced-motion: reduce){
     /* the ribbons draw once and hold still; the deck snaps without easing: see the scripts */
-    .sheet,.dots button::before{ transition:none }
+    .cap > *,.dots button::before{ transition:none }
+    .slide:not(.on) .cap > *{ transform:none }
     .deck{ scroll-behavior:auto }
     .live::before{ animation:none }
     .rise{ animation:none; opacity:1; transform:none }
@@ -424,18 +451,21 @@
     <div class="top rise" style="--n:0">
       <div>
         <p class="eyebrow" id="work-eyebrow">My work</p>
-        <p class="intro">Landing pages I've built, mostly for Golden Mile Chrysler. Swipe through; each one is the real page.</p>
+        <h1 class="title">Eight real pages.</h1>
       </div>
-      <div class="ctl" aria-hidden="true">
-        <span class="count"><b id="cur">01</b> / 08</span>
-        <button type="button" class="glass glass--pill arrow" id="prev" data-chroma="0" data-band="9" data-depth="5">←</button>
-        <button type="button" class="glass glass--pill arrow" id="next" data-chroma="0" data-band="9" data-depth="5">→</button>
+      <div class="lead">
+        <p class="intro">Landing pages I've built, mostly for Golden Mile Chrysler. Swipe through: every one is the actual page, not a mock-up.</p>
+        <div class="ctl">
+        <span class="count" aria-live="polite"><b id="cur">01</b> / 08</span>
+        <button type="button" class="glass glass--pill arrow" id="prev" aria-label="Previous page" data-chroma="0" data-band="9" data-depth="5"><span aria-hidden="true">←</span></button>
+        <button type="button" class="glass glass--pill arrow" id="next" aria-label="Next page" data-chroma="0" data-band="9" data-depth="5"><span aria-hidden="true">→</span></button>
+        </div>
       </div>
     </div>
 
     <!-- The deck: one sheet per page. Swipe, scroll, press the arrows or the dots, or use the keyboard. -->
     <ol class="deck rise" style="--n:1" id="deck" aria-label="Pages I've built" tabindex="0">
-      <li class="slide" id="p1" data-key="swinging">
+      <li class="slide" id="p1" role="group" aria-roledescription="slide" aria-label="1 of 8" data-key="swinging">
         <article class="glass sheet" aria-label="The Swinging Lady">
           <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/swinging.jpg" data-src="assets/work/swinging" aria-label="The Swinging Lady, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
           <div class="cap">
@@ -446,7 +476,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p2" data-key="collision">
+      <li class="slide" id="p2" role="group" aria-roledescription="slide" aria-label="2 of 8" data-key="collision">
         <article class="glass sheet" aria-label="Collision Centre">
           <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/collision.jpg" data-src="assets/work/collision" aria-label="Collision Centre, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
           <div class="cap">
@@ -457,7 +487,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p3" data-key="ttc">
+      <li class="slide" id="p3" role="group" aria-roledescription="slide" aria-label="3 of 8" data-key="ttc">
         <article class="glass sheet" aria-label="TTC Employee Pricing">
           <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/ttc.jpg" data-src="assets/work/ttc" aria-label="TTC Employee Pricing, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
           <div class="cap">
@@ -468,7 +498,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p4" data-key="legacy">
+      <li class="slide" id="p4" role="group" aria-roledescription="slide" aria-label="4 of 8" data-key="legacy">
         <article class="glass sheet" aria-label="Thirty Years in the Bay">
           <div class="screen"><video muted loop playsinline preload="none" poster="assets/work/legacy.jpg" data-src="assets/work/legacy" aria-label="Thirty Years in the Bay, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
           <div class="cap">
@@ -479,7 +509,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p5" data-key="service">
+      <li class="slide" id="p5" role="group" aria-roledescription="slide" aria-label="5 of 8" data-key="service">
         <article class="glass sheet" aria-label="Service, Perfected">
           <div class="screen"><img src="assets/work/service.jpg" alt="Service, Perfected" loading="lazy" decoding="async"><span class="mark" aria-hidden="true">Screenshot</span></div>
           <div class="cap">
@@ -490,7 +520,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p6" data-key="fleet">
+      <li class="slide" id="p6" role="group" aria-roledescription="slide" aria-label="6 of 8" data-key="fleet">
         <article class="glass sheet" aria-label="Fleet & Association Programs">
           <div class="screen"><img src="assets/work/fleet.jpg" alt="Fleet & Association Programs" loading="lazy" decoding="async"><span class="mark" aria-hidden="true">Screenshot</span></div>
           <div class="cap">
@@ -501,7 +531,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p7" data-key="dream">
+      <li class="slide" id="p7" role="group" aria-roledescription="slide" aria-label="7 of 8" data-key="dream">
         <article class="glass sheet" aria-label="Dream Wheels">
           <div class="screen"><img src="assets/dream-wheels.jpg" alt="Dream Wheels" loading="lazy" decoding="async"><span class="mark" aria-hidden="true">Screenshot</span></div>
           <div class="cap">
@@ -512,7 +542,7 @@
           </div>
         </article>
       </li>
-      <li class="slide" id="p8" data-key="getfreesol">
+      <li class="slide" id="p8" role="group" aria-roledescription="slide" aria-label="8 of 8" data-key="getfreesol">
         <article class="glass sheet" aria-label="GetFreeSol">
           <div class="screen"><video muted loop playsinline preload="none" poster="assets/video/getfreesol.jpg" data-src="assets/video/getfreesol" aria-label="GetFreeSol, recorded as it scrolls"></video><span class="mark mark--rec" aria-hidden="true">Recorded</span></div>
           <div class="cap">
@@ -534,9 +564,15 @@
       <li><button type="button" data-go="6" aria-label="Dream Wheels"></button></li>
       <li><button type="button" data-go="7" aria-label="GetFreeSol"></button></li>
     </ol>
+    <p class="hint rise" style="--n:2">Swipe sideways to see the rest</p>
+
+    <div class="after rise" style="--n:3">
+      <p>Want a page like these for your business?</p>
+      <a class="solid" href="contact.html">Let's talk</a>
+    </div>
   </section>
 
-  <footer class="foot rise" style="--n:3">
+  <footer class="foot rise" style="--n:4">
     <span>Ejay Adamo</span>
     <span>My work</span>
   </footer>
@@ -586,17 +622,26 @@
     deck.scrollBy({ left: (r.left + r.width / 2) - (d.left + d.width / 2), behavior: still ? 'auto' : 'smooth' });
   }
 
-  // the sheet nearest the middle of the deck is the one on
-  let raf = 0;
+  // the sheet nearest the middle of the deck is the one on; every sheet is told how far from the
+  // middle it is (in sheets), which is what turns it toward the middle and dims it as it leaves
+  let raf = 0, gap = 16;
+  const measure = () => { gap = parseFloat(getComputedStyle(deck).columnGap) || 16; };
   function pick(){
     const mid = deck.getBoundingClientRect().left + deck.clientWidth / 2;
     let best = 0, dist = Infinity;
-    slides.forEach((sl, j) => { const r = sl.getBoundingClientRect(); const c = Math.abs(r.left + r.width / 2 - mid); if (c < dist){ dist = c; best = j; } });
+    slides.forEach((sl, j) => {
+      const r = sl.getBoundingClientRect(), c = r.left + r.width / 2 - mid;
+      const off = Math.max(-1.5, Math.min(1.5, c / (r.width + gap)));
+      sl.style.setProperty('--off', off.toFixed(3));
+      sl.style.setProperty('--near', Math.max(0, 1 - Math.abs(off)).toFixed(3));
+      if (Math.abs(c) < dist){ dist = Math.abs(c); best = j; }
+    });
     setActive(best);
   }
   const queue = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; pick(); }); };
   deck.addEventListener('scroll', queue, { passive:true });
-  addEventListener('resize', queue);
+  deck.addEventListener('scroll', () => deck.closest('.work').classList.add('moved'), { once:true, passive:true });
+  addEventListener('resize', () => { measure(); queue(); });
 
   const at = () => heading >= 0 ? heading : active;
   prev.addEventListener('click', () => go(at() - 1));
@@ -612,8 +657,8 @@
   // a hairline under a playing clip shows how far through it is
   slides.forEach(sl => { const v = sl.querySelector('video'); if (v) v.addEventListener('timeupdate', () => { if (v.duration) sl.querySelector('.screen').style.setProperty('--p', (v.currentTime / v.duration).toFixed(3)); }); });
 
-  pick();
-  addEventListener('load', queue);
+  measure(); pick();
+  addEventListener('load', () => { measure(); queue(); });
 })();
 </script>
 
