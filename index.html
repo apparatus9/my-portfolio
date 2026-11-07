@@ -23,7 +23,6 @@
     --ink:    #0A0A0A;
     --pill:   #F0F0F0;
     --pill-in:#48484A;
-    --title-ink:#E4E4E7;   /* tunnel titles: a soft grey watermark the orbs sit in front of */
     /* the carousel, in one place */
     --r: 800px;          /* measured off dirtverse's settled ring: 1.5x the orb */
     --orb: 533.333px;    /* dirtverse's orb size; the ring and the shadows scale off it */
@@ -86,7 +85,7 @@
      stylesheet's video{max-width:100%} resolves against the zero-width .ring
      and collapses it — the same trap that rules out <img> here. */
   /* clip each clip to its disc: its white square corners would otherwise paint over
-     the watermark titles running behind the orbs (disc edge is 39.9% of the frame) */
+     the wash of colour behind the orbs (disc edge is 39.9% of the frame) */
   .orbvid{ max-width:none; object-fit:contain; background:none; clip-path:circle(39.5% at 50% 50%) }
 
   .orbimg{
@@ -123,36 +122,21 @@
     will-change:clip-path;
   }
 
-  /* ---------- section titles: a tunnel behind the orbs ---------- */
-  /* The title is part of the background. Its words are split across two giant
-     lines, one on the tunnel's ceiling above the orbs and one on its floor
-     below them, each leaning back toward the middle of the screen where the
-     orbs float, so the lettering runs far back into the distance. It is set in
-     one flat soft grey, a watermark the orbs lead in front of. JS sizes each line to the
-     screen; on a handover the titles cross-fade where they stand, never moving. */
-  .titles{
+  /* ---------- the wash: the front orb's colour, breathed onto the page behind the ring ---------- */
+  /* One soft pool of colour per section, centred on the ring, in that orb's own tint. Only the
+     one whose orb is at the front shows; as the ring turns it hands over to the next, so the page
+     changes mood with each orb and the colour that blooms out when you click one is already there. */
+  .wash{
     position:absolute; inset:0; z-index:-1;   /* behind the orbs, inside the scene */
-    pointer-events:none; opacity:0; transition:opacity .6s cubic-bezier(0,0,.58,1);
+    pointer-events:none; opacity:0; transition:opacity 1.2s cubic-bezier(0,0,.58,1);
   }
-  .titles.in{ opacity:1 }
+  .wash.in{ opacity:1 }
+  .wash__pool{
+    position:absolute; inset:0; opacity:0; will-change:opacity;
+    background:radial-gradient(58% 46% at 50% calc((100% - 104.6px) / 2), var(--tint), transparent 70%);
+  }
   .sr-only{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
             overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap }
-  .title{ position:absolute; inset:0; opacity:0; will-change:opacity }
-  .title__line{
-    position:absolute; left:50%; white-space:nowrap;
-    font-family:Archivo, system-ui, sans-serif;   /* Archivo Black: the header's family at full weight */
-    font-weight:900; font-stretch:62%; line-height:1; text-transform:uppercase;   /* Archivo at its narrowest: skinny letters */
-    letter-spacing:.08em; padding-left:.08em;   /* spread out; the padding balances the tracking after the last letter */
-    color:var(--title-ink);
-  }
-  /* ceiling: pinned by its top edge, its lower edge running back into the tunnel */
-  .title__line--top{
-    transform-origin:50% 0%;
-  }
-  /* floor: pinned by its bottom edge, its upper edge running back into the tunnel */
-  .title__line--bot{
-    transform-origin:50% 100%;
-  }
 
   /* the line under the name: what this is, in one sentence */
   .tag{
@@ -186,7 +170,6 @@
     .brand{ font-size:16px }
     .tag{ top:54px; font-size:12.5px }
     .shade{ filter:blur(6px) }
-    :root{ --title-ink:#ECECEF }   /* the watermark steps further back on a small screen; the orbs and the caption lead */
   }
   @media (prefers-reduced-motion: reduce){
     .slot__f{ animation:none }
@@ -364,13 +347,13 @@
 
   const ring = document.getElementById('ring');
 
-  // Section titles. Each orb clip carries its section in data-title (its twin
-  // on the far side shares it). Only the orb at the front shows its title,
-  // which rides above that orb and hands over to the next as the ring turns.
-  const titleBox = document.createElement('div');
-  titleBox.className = 'titles';
-  scene.appendChild(titleBox);
-  // the watermark is decorative-strength contrast, so the front section is also announced
+  // The wash. Each orb clip carries its section in data-title and its colour in data-tint
+  // (its twin on the far side shares both). One pool of that colour sits behind the ring
+  // per section; only the front one shows, handing over to the next as the ring turns.
+  const wash = document.createElement('div');
+  wash.className = 'wash';
+  scene.appendChild(wash);
+  // the colour says nothing out loud, so the front section is announced as well
   const titleLive = document.createElement('p');
   titleLive.className = 'sr-only';
   titleLive.setAttribute('aria-live', 'polite');
@@ -379,36 +362,17 @@
     const v = s.querySelector('video');
     return v ? v.dataset.title || '' : '';
   });
-  // Split a title across the tunnel's ceiling and floor at the word break
-  // that balances the two lines best; a single word keeps the ceiling alone.
-  const splitTitle = name => {
-    const words = name.split(' ');
-    let best = [name, ''], gap = Infinity;
-    for (let i = 1; i < words.length; i++){
-      const top = words.slice(0, i).join(' '), bot = words.slice(i).join(' ');
-      const d = Math.abs(top.length - bot.length);
-      if (d < gap){ gap = d; best = [top, bot]; }
-    }
-    return best;
-  };
-  const titleEls = new Map();                     // title -> { el, lines, drawn }
+  const WASH_MAX = 0.30;                           // the pool at full strength: colour, never paint
+  const pools = new Map();                         // title -> { el, drawn }
   for (let k = 0; k < N; k++){
     const name = slotTitle[(N / 2 + k) % N];
-    if (!name || titleEls.has(name)) continue;
+    if (!name || pools.has(name)) continue;
+    const v = slots[(N / 2 + k) % N].querySelector('video');
     const el = document.createElement('div');
-    el.className = 'title';
-    const lines = [];
-    const [topText, botText] = splitTitle(name);
-    for (const [text, where] of [[topText, 'top'], [botText, 'bot']]){
-      if (!text) continue;
-      const node = document.createElement('span');
-      node.className = 'title__line title__line--' + where;
-      node.textContent = text;
-      el.appendChild(node);
-      lines.push({ node, where, text });
-    }
-    titleBox.appendChild(el);
-    titleEls.set(name, { el, lines, drawn: '' });
+    el.className = 'wash__pool';
+    el.style.setProperty('--tint', v.dataset.tint || '#888');
+    wash.appendChild(el);
+    pools.set(name, { el, drawn: '' });
   }
 
   // Chrome declines the autoplay attribute often enough that a video orb just
@@ -535,13 +499,13 @@
 
   let dragging, x0, rot0;
   let armed = calm;
-  if (calm) { slots.forEach(s => s.classList.add('in')); titleBox.classList.add('in'); foot.classList.add('in'); }
+  if (calm) { slots.forEach(s => s.classList.add('in')); wash.classList.add('in'); foot.classList.add('in'); }
   else {
     const enter = () => {
       setTimeout(() => {
         spin.target = 180;
         rad.target  = R;
-        { slots.forEach(s => s.classList.add('in')); titleBox.classList.add('in'); }
+        { slots.forEach(s => s.classList.add('in')); wash.classList.add('in'); }
       }, ENTRY_DELAY * 1000);
       setTimeout(() => foot.classList.add('in'), ENTRY_DELAY * 1000 + 900);   // once the ring has mostly settled
       setTimeout(() => {
@@ -689,62 +653,7 @@
   const order = slots.map((_, i) => i);
   const zDrawn = new Int8Array(N).fill(-1);
 
-  // Tunnel geometry. The letters are stretched long and skinny, and the two lines
-  // lean differently: the ceiling a moderate lean, the floor a steep one seen from
-  // close up, so its near (bottom) edge flares wide while its far edge pinches in
-  // toward the orbs, like looking down into an abyss. The lines are a watermark
-  // behind the orbs, so each may run in as far as the ring centre. Each line is
-  // sized on its own: as tall as its band allows once stretched and foreshortened,
-  // and never wider than 86% of the screen.
-  const TUNNEL = {
-    top: { tilt: 40, persp: 900 },
-    bot: { tilt: 40, persp: 520 },   // gentle enough to reach the orbs without a huge stretched layer
-  };
-  const TUNNEL_STRETCH = 2.6;
-  let announced = '';                                           // last title read out to screen readers
-  const layoutTitles = () => {
-    const vw = innerWidth, vh = innerHeight;
-    const cy = (vh - 104.6) / 2;                                // ring centre, as in the CSS
-    const topStart = document.querySelector('.tag').getBoundingClientRect().bottom + 28;   // under the line beneath the name
-    const botEnd = document.querySelector('.foot').getBoundingClientRect().top - 32;       // above the foot
-    const bands = { top: cy - 12 - topStart, bot: botEnd - (cy + 12) };
-    const probe = document.createElement('span');
-    probe.className = 'title__line';
-    probe.style.cssText = 'visibility:hidden;font-size:100px;left:0;top:0;transform:none';
-    titleBox.appendChild(probe);
-    for (const rec of titleEls.values()){
-      for (const l of rec.lines){
-        const pose = TUNNEL[l.where], tilt = pose.tilt * Math.PI / 180;
-        probe.textContent = l.text;
-        const widest = 100 * vw * 0.86 / probe.offsetWidth;      // never wider than 86% of the screen
-        let size, stretch;
-        if (l.where === 'top'){
-          stretch = TUNNEL_STRETCH;
-          size = Math.min(widest, Math.max(40, bands.top) / (0.72 * stretch * Math.cos(tilt)));
-        } else {
-          // The floor reaches up toward the orbs: pick the stretch that lands the tops of its
-          // capitals just under the front orb. In perspective, capitals stretched to height H
-          // rise H cos(t) * P / (P + H sin(t)) on screen; solving that for H gives the stretch.
-          size = Math.min(widest, 260);
-          const reach = botEnd - (cy + faceHalf * PERSP / (PERSP + R) - 8);
-          const room = pose.persp * Math.cos(tilt) - reach * Math.sin(tilt);
-          const tall = room > 0 ? reach * pose.persp / room : Infinity;
-          stretch = Math.min(7, Math.max(TUNNEL_STRETCH, tall / (0.72 * size)));   // bounded: a longer stretch builds a layer too big to draw smoothly
-        }
-        l.node.style.fontSize = size.toFixed(1) + 'px';
-        if (l.where === 'top'){ l.node.style.top = topStart + 'px'; l.node.style.bottom = ''; }
-        else { l.node.style.bottom = (vh - botEnd) + 'px'; l.node.style.top = ''; }
-        // the fixed pose: the ceiling leans its lower edge away, the floor its upper edge
-        l.node.style.transform = 'translate(-50%,0) perspective(' + pose.persp + 'px) rotateX(' +
-          (l.where === 'top' ? -pose.tilt : pose.tilt) + 'deg) scaleY(' + stretch.toFixed(3) + ')';
-      }
-      rec.drawn = '';                                            // rewrite opacity next frame
-    }
-    probe.remove();
-  };
-  layoutTitles();
-  document.fonts.ready.then(layoutTitles);
-  addEventListener('resize', layoutTitles, { passive: true });
+  let announced = '';                                           // last section read out to screen readers
   let prev = performance.now();
 
   (function frame(now){
@@ -793,8 +702,8 @@
       if (zDrawn[i] !== k){ slots[i].style.zIndex = k; zDrawn[i] = k; }
     }
 
-    // Titles. Each is weighted by how near its orb is to dead front and simply
-    // cross-fades where it stands: the tunnel lines never move, they only swap.
+    // The wash. Each pool is weighted by how near its orb is to dead front and simply
+    // cross-fades in place: the colours never move, they only hand over.
     const near = new Map();                        // title -> weight 0..1
     for (let i = 0; i < N; i++){
       const name = slotTitle[i];
@@ -807,10 +716,10 @@
     let frontName = '', frontT = 0;
     for (const [name, t] of near) if (t > frontT){ frontT = t; frontName = name; }
     if (frontName && frontName !== announced){ announced = frontName; titleLive.textContent = frontName; swapCap(frontName); }
-    for (const [name, rec] of titleEls){
+    for (const [name, rec] of pools){
       const t = near.get(name) || 0;
-      const o = t * t * (3 - 2 * t);                // smoothstep: no hard edges in the fade
-      const key = o.toFixed(3);
+      const o = t * t * (3 - 2 * t);                // smoothstep: no hard edges in the handover
+      const key = (o * WASH_MAX).toFixed(3);
       if (key === rec.drawn) continue;
       rec.drawn = key;
       rec.el.style.opacity = key;
