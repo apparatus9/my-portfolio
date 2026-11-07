@@ -27,7 +27,10 @@
   wants one of their own.
 
   If a clip won't start on its own (autoplay refused, or the system asks for
-  less motion), a play button sits on it instead.
+  less motion), a play button sits on it instead. A clip the browser can't
+  decode falls back to its mp4. The clips are encoded as ordinary
+  limited-range video: full-range VP9 is refused by some hardware decoders
+  (Edge on this machine showed a decode error and sat on the poster).
 
   Deliberately non-technical: no tags, no repo links, nothing to decode.
   Everything shown is the actual page. The recordings in assets/work/ were
@@ -636,6 +639,13 @@
     const v = sl.querySelector('video'), b = sl.querySelector('.play');
     if (!v) return;
     v.addEventListener('playing', () => sl.classList.remove('wants-play'));
+    v.addEventListener('error', () => {   // the browser gave up on this clip: try the mp4 on its own, once
+      if (v.dataset.fallback || !v.error || v.error.code < 3) return;
+      v.dataset.fallback = '1';
+      v.innerHTML = `<source src="${v.dataset.src}.mp4" type="video/mp4">`;
+      v.load();
+      if (sl.classList.contains('on')) tryPlay(sl, v);
+    });
     v.addEventListener('pause', () => { if (sl.classList.contains('on')) sl.classList.add('wants-play'); });
     b.addEventListener('click', (e) => { e.stopPropagation(); tryPlay(sl, v); });
   });
