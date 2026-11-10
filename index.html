@@ -13,6 +13,10 @@
 <link rel="prefetch" href="work.html">
 <link rel="prefetch" href="testimonies.html">
 
+<!-- The ring holds five doors now, one per section, drawn in CSS (see "a door, second pass"
+     in the styles). They replaced the chrome orb clips on 2026-11-09; the clips are still in
+     assets/3d/_ref and the carousel code still calls its faces "orbs" throughout. -->
+
 <style>
   :root{
     /* Pure white, sampled off dirtverse's live hero rather than read out of
@@ -87,6 +91,105 @@
   /* clip each clip to its disc: its white square corners would otherwise paint over
      the wash of colour behind the orbs (disc edge is 39.9% of the frame) */
   .orbvid{ max-width:none; object-fit:contain; background:none; clip-path:circle(39.5% at 50% 50%) }
+
+  /* ---------- a door, second pass ----------
+     A tall arched doorway the size of an orb. Through it, a small lit room in the category's
+     colour with the category's subject standing in it, half hidden by the leaf, which is a real
+     panelled door swung inward. A threshold under it, the light spilling over the floor.
+     Drawn in CSS; the only clip is the page playing behind the My work door.
+     Back to front: glow on the wall, frame, the room (floor, subject, jamb), leaf, sill, spill. */
+  .door{ clip-path:none; --w:calc(var(--orb) * .42); --h:calc(var(--orb) * .76); --top:calc(var(--orb) * .08);
+         --arch:50% 50% 0 0 / 27.6% 27.6% 0 0 }
+  .door > *{ position:absolute; pointer-events:none; display:block }
+  .door__glow{
+    left:calc(50% - var(--orb) * .36); top:calc(var(--top) - var(--orb) * .14);
+    width:calc(var(--orb) * .72); height:calc(var(--h) + var(--orb) * .22); border-radius:50%;
+    background:radial-gradient(50% 50% at 50% 52%, var(--tint) 0%, transparent 70%);
+    opacity:.40; animation:breathe 5.2s var(--delay, 0s) ease-in-out infinite;
+  }
+  @keyframes breathe{ 0%,100%{ opacity:.40 } 50%{ opacity:.52 } }
+  .door__frame{
+    left:calc(50% - var(--w) / 2 - var(--orb) * .028); top:calc(var(--top) - var(--orb) * .028);
+    width:calc(var(--w) + var(--orb) * .056); height:calc(var(--h) + var(--orb) * .028);
+    border-radius:var(--arch);
+    background:linear-gradient(180deg, #F8F8F9, #E7E7EB 60%, #D9D9DF);
+    box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 -1px 0 rgba(0,0,0,.06) inset, 0 12px 26px -16px rgba(0,0,0,.28);
+  }
+  .door__way{
+    left:calc(50% - var(--w) / 2); top:var(--top); width:var(--w); height:var(--h); border-radius:var(--arch);
+    overflow:hidden; display:grid; place-items:center;
+    background:
+      radial-gradient(90% 50% at 50% 40%, #FFFFFF 0%, color-mix(in srgb, var(--tint) 30%, #FFFFFF) 45%, transparent 80%),
+      linear-gradient(180deg, color-mix(in srgb, var(--tint) 70%, #FFFFFF) 0%, color-mix(in srgb, var(--tint) 88%, #FFFFFF) 50%, var(--tint) 100%);
+    box-shadow:0 0 0 1px rgba(0,0,0,.07) inset;
+  }
+  .door__way > *{ position:absolute; pointer-events:none }
+  .door__floor{                            /* the room's floor: the colour deepening toward the sill */
+    left:-20%; right:-20%; bottom:-6%; height:34%; border-radius:50%;
+    background:radial-gradient(50% 60% at 50% 70%, color-mix(in srgb, var(--tint) 85%, #000) 0%, color-mix(in srgb, var(--tint) 92%, #FFFFFF) 60%, transparent 78%);
+    opacity:.55;
+  }
+  .door__jamb{                             /* the wall's thickness on the hinge side, in shadow */
+    left:0; top:0; bottom:0; width:9%;
+    background:linear-gradient(90deg, rgba(0,0,0,.28), rgba(0,0,0,0));
+  }
+  .door__peek{ left:40%; top:0; width:60%; height:100%; display:grid; place-items:center; padding-top:6% }
+  .door__peek > *{ pointer-events:none }
+  .mini{
+    width:68%; aspect-ratio:9 / 18.5; border-radius:11% / 5.5%; background:#141416; padding:3.5%; display:block;
+    box-shadow:0 calc(var(--w) * .08) calc(var(--w) * .16) calc(var(--w) * -.06) rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.12);
+    transform:translateY(2%);
+  }
+  .mini video{ width:100%; height:100%; object-fit:cover; object-position:top; border-radius:8% / 4%; display:block; background:#fff }
+  .bubble{
+    font-weight:800; font-stretch:110%; letter-spacing:-.02em; font-size:calc(var(--w) * .1); color:var(--ink); white-space:nowrap;
+    background:#FFFFFF; padding:.55em .9em; border-radius:999px; position:relative; transform:translateY(-10%);
+    box-shadow:0 calc(var(--w) * .05) calc(var(--w) * .12) calc(var(--w) * -.04) rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.05);
+  }
+  .bubble::after{ content:""; position:absolute; left:18%; bottom:-22%; border:.5em solid transparent; border-top-color:#FFFFFF; border-left-color:#FFFFFF; transform:skewX(-20deg) }
+  .glyph{
+    font-weight:900; font-stretch:125%; letter-spacing:-.06em; font-size:calc(var(--w) * .55); line-height:1;
+    background:linear-gradient(165deg, #FFFFFF 0%, #B9B9C2 28%, #2C2C32 52%, #6E6E78 70%, #E6E6EB 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .glyph--q{ font-size:calc(var(--w) * .9); transform:translateY(30%) }
+  .mark{ width:88%; height:auto; display:block; transform:translateY(-6%); opacity:.92 }
+  .door__leaf{
+    left:calc(50% - var(--w) / 2); top:var(--top); width:var(--w); height:var(--h); border-radius:var(--arch);
+    transform-origin:0 50%;
+    transform:perspective(calc(var(--orb) * 1.5)) rotateY(58deg);
+    background:linear-gradient(90deg, #2E2E34 0%, #46464E 55%, color-mix(in srgb, var(--tint) 45%, #6A6A74) 92%, color-mix(in srgb, var(--tint) 70%, #FFFFFF) 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), calc(var(--orb) * .025) 0 calc(var(--orb) * .06) rgba(0,0,0,.28);
+    animation:sway 7s var(--delay, 0s) ease-in-out infinite;
+    transition:transform .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .door__leaf::before{                     /* one tall recessed panel, following the arch */
+    content:""; position:absolute; left:13%; right:13%; top:9%; bottom:9%;
+    border-radius:50% 50% 3% 3% / 32% 32% 2% 2%;
+    background:linear-gradient(180deg, rgba(0,0,0,.22), rgba(0,0,0,.06));
+    box-shadow:inset 2px 3px 6px rgba(0,0,0,.55), inset -1px -1px 0 rgba(255,255,255,.06), 1px 1px 0 rgba(255,255,255,.05);
+  }
+  .door__leaf::after{                      /* the handle, catching the light */
+    content:""; position:absolute; right:8%; top:52%; width:calc(var(--orb) * .022); height:calc(var(--orb) * .022);
+    border-radius:50%; background:radial-gradient(circle at 35% 35%, #FFFFFF, #9A9AA3 55%, #55555E);
+  }
+  @keyframes sway{ 0%,100%{ transform:perspective(calc(var(--orb) * 1.5)) rotateY(58deg) }
+                   50%{ transform:perspective(calc(var(--orb) * 1.5)) rotateY(62deg) } }
+  .door__sill{                             /* the threshold */
+    left:calc(50% - var(--w) / 2 - var(--orb) * .036); top:calc(var(--top) + var(--h) - var(--orb) * .004);
+    width:calc(var(--w) + var(--orb) * .072); height:calc(var(--orb) * .016); border-radius:2px;
+    background:linear-gradient(180deg, #EDEDF0, #CBCBD2); box-shadow:0 2px 3px rgba(0,0,0,.18);
+  }
+  .door__spill{
+    left:calc(50% - var(--w) * .55); top:calc(var(--top) + var(--h) - var(--orb) * .01);
+    width:calc(var(--w) * 2.2); height:calc(var(--orb) * .2);
+    background:radial-gradient(42% 60% at 58% 18%, color-mix(in srgb, var(--tint) 60%, #FFFFFF) 0%, color-mix(in srgb, var(--tint) 38%, #FFFFFF) 35%, transparent 70%);
+    opacity:.9;
+  }
+  .door:hover .door__leaf{ animation:none; transform:perspective(calc(var(--orb) * 1.5)) rotateY(74deg) }
+  .door:hover .door__glow{ opacity:.6 }
+  @media (prefers-reduced-motion: reduce){ .door__leaf,.door__glow{ animation:none } }
+  .shade{ display:none }   /* the door's own spill is its shadow */
 
   .orbimg{
     width:var(--orb); height:var(--orb);
@@ -332,25 +435,25 @@
 </header>
 <p class="tag">I build landing pages and small web apps for Toronto businesses.</p>
 
-<div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys. Press Enter to open the orb at the front.">
+<div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys. Press Enter to open the door at the front.">
   <div class="ring" id="ring" style="--step:36deg">
-    <div class="slot" style="--i:0"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs. Opens More about me." data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html"></video></div></div>
-    <div class="slot" style="--i:1"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs. Opens Contact." data-href="contact.html" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576"></video></div></div>
-    <div class="slot" style="--i:2"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark. Opens What you should know." data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html"></video></div></div>
-    <div class="slot" style="--i:3"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs. Opens My work." data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html"></video></div></div>
-    <div class="slot" style="--i:4"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces. Opens Testimonies." data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html"></video></div></div>
-    <div class="slot" style="--i:5"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium.webm" poster="assets/3d/_ref/premium.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Red chrome blobs. Opens More about me." data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html"></video></div></div>
-    <div class="slot" style="--i:6"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium6.webm" poster="assets/3d/_ref/premium6.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Blue chrome blobs. Opens Contact." data-href="contact.html" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576"></video></div></div>
-    <div class="slot" style="--i:7"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium7.webm" poster="assets/3d/_ref/premium7.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Floating question mark. Opens What you should know." data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html"></video></div></div>
-    <div class="slot" style="--i:8"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium10.webm" poster="assets/3d/_ref/premium10.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Emerald chrome blobs. Opens My work." data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html"></video></div></div>
-    <div class="slot" style="--i:9"><div class="slot__f"><video class="orbimg orbvid" src="assets/3d/_ref/premium5.webm" poster="assets/3d/_ref/premium5.webp" autoplay loop muted playsinline preload="auto" disablepictureinpicture aria-label="Morphing faces. Opens Testimonies." data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html"></video></div></div>
+    <div class="slot" style="--i:0"><div class="slot__f"><div class="orbimg orbvid door" data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html" style="--tint:#E84E52" aria-label="A door standing ajar. Opens More about me."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><img class="mark" src="assets/intro/ejay-mark.png" alt=""></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:1"><div class="slot__f"><div class="orbimg orbvid door" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576" data-href="contact.html" style="--tint:#225576" aria-label="A door standing ajar. Opens Contact."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="bubble">Say hello</span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:2"><div class="slot__f"><div class="orbimg orbvid door" data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html" style="--tint:#D57594" aria-label="A door standing ajar. Opens What you should know."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph">?</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:3"><div class="slot__f"><div class="orbimg orbvid door" data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html" style="--tint:#609B61" aria-label="A door standing ajar. Opens My work."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="mini"><video src="assets/work/swinging.webm" poster="assets/work/swinging.jpg" muted loop autoplay playsinline preload="metadata" disablepictureinpicture></video></span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:4"><div class="slot__f"><div class="orbimg orbvid door" data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html" style="--tint:#C89897" aria-label="A door standing ajar. Opens Testimonies."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph glyph--q">&ldquo;</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><div class="orbimg orbvid door" data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html" style="--tint:#E84E52" aria-label="A door standing ajar. Opens More about me."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><img class="mark" src="assets/intro/ejay-mark.png" alt=""></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:6"><div class="slot__f"><div class="orbimg orbvid door" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576" data-href="contact.html" style="--tint:#225576" aria-label="A door standing ajar. Opens Contact."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="bubble">Say hello</span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:7"><div class="slot__f"><div class="orbimg orbvid door" data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html" style="--tint:#D57594" aria-label="A door standing ajar. Opens What you should know."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph">?</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><div class="orbimg orbvid door" data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html" style="--tint:#609B61" aria-label="A door standing ajar. Opens My work."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="mini"><video src="assets/work/swinging.webm" poster="assets/work/swinging.jpg" muted loop autoplay playsinline preload="metadata" disablepictureinpicture></video></span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:9"><div class="slot__f"><div class="orbimg orbvid door" data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html" style="--tint:#C89897" aria-label="A door standing ajar. Opens Testimonies."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph glyph--q">&ldquo;</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
   </div>
 </div>
 
 
 <div class="foot" id="foot">
   <p class="cap" id="cap" aria-hidden="true"><b class="cap__name"></b><span class="cap__tease"></span></p>
-  <span class="hint">Drag to slide &middot; Click an orb to open</span>
+  <span class="hint">Drag to slide &middot; Click a door to open</span>
 </div>
 
 <script>
@@ -375,7 +478,7 @@
   titleLive.setAttribute('aria-live', 'polite');
   scene.appendChild(titleLive);
   const slotTitle = slots.map(s => {
-    const v = s.querySelector('video');
+    const v = s.querySelector('.orbvid');
     return v ? v.dataset.title || '' : '';
   });
   const WASH_MAX = 0.17;                           // the pool at full strength: a tint on the floor, never paint
@@ -383,7 +486,7 @@
   for (let k = 0; k < N; k++){
     const name = slotTitle[(N / 2 + k) % N];
     if (!name || pools.has(name)) continue;
-    const v = slots[(N / 2 + k) % N].querySelector('video');
+    const v = slots[(N / 2 + k) % N].querySelector('.orbvid');
     const el = document.createElement('div');
     el.className = 'wash__pool';
     el.style.setProperty('--tint', v.dataset.tint || '#888');
@@ -398,14 +501,16 @@
   // before any data has arrived, and playbackRate is reset by some loads. So:
   // ask on every event that means "more is ready", and again on first input.
   const FACE_RATE = 1;            // full rate: the slow revolution is baked into the frames now
-  const faces = [...document.querySelectorAll('video.orbvid')];
-  const startFaces = () => faces.forEach(v => {
+  const faces = [...document.querySelectorAll('.orbvid')];
+  const minis = [...document.querySelectorAll('.mini video')];
+  const startFaces = () => faces.concat(minis).forEach(v => {
+    if (!v.play) return;                     // a door, not a clip: nothing to start
     if (v.dataset.culled === '1') return;   // far side of the ring: left paused on purpose
     v.playbackRate = FACE_RATE;
     const p = v.play();
     if (p) p.catch(() => {});
   });
-  faces.forEach(v => {
+  minis.forEach(v => {
     ['loadeddata', 'canplay', 'canplaythrough', 'stalled', 'suspend'].forEach(
       e => v.addEventListener(e, startFaces));
   });
@@ -418,7 +523,7 @@
   if (new URLSearchParams(location.search).get('debug') === '1'){
     const out = document.querySelector('.hint');
     setInterval(() => {
-      out.textContent = faces.map(v =>
+      out.textContent = minis.map(v =>
         (v.paused ? 'PAUSED' : 'playing') +
         ' ready:' + v.readyState +
         ' t:' + v.currentTime.toFixed(1) +
@@ -431,7 +536,7 @@
 
   // each slot gets its orb's colour, for the shadow the orb casts
   slots.forEach(s => {
-    const v = s.querySelector('video');
+    const v = s.querySelector('.orbvid');
     if (v && v.dataset.tint) s.style.setProperty('--tint', v.dataset.tint);
     const shade = document.createElement('div');
     shade.className = 'shade';
@@ -696,7 +801,7 @@
         shown[i] = on;
         slots[i].style.visibility = on ? '' : 'hidden';
         const v = faces[i];
-        if (v){
+        if (v && v.play){
           v.dataset.culled = on ? '0' : '1';   // hidden videos pause: ten 1080p60 decodes is too many
           if (on) v.play().catch(() => {}); else v.pause();
         }
