@@ -13,7 +13,7 @@
 <link rel="prefetch" href="work.html">
 <link rel="prefetch" href="testimonies.html">
 
-<!-- The ring holds five doors now, one per section, drawn in CSS (see "a door, second pass"
+<!-- The ring holds five doors now, one per section, drawn in CSS (see "a door, third pass"
      in the styles). They replaced the chrome orb clips on 2026-11-09; the clips are still in
      assets/3d/_ref and the carousel code still calls its faces "orbs" throughout. -->
 
@@ -92,104 +92,124 @@
      the wash of colour behind the orbs (disc edge is 39.9% of the frame) */
   .orbvid{ max-width:none; object-fit:contain; background:none; clip-path:circle(39.5% at 50% 50%) }
 
-  /* ---------- a door, second pass ----------
-     A tall arched doorway the size of an orb. Through it, a small lit room in the category's
-     colour with the category's subject standing in it, half hidden by the leaf, which is a real
-     panelled door swung inward. A threshold under it, the light spilling over the floor.
-     Drawn in CSS; the only clip is the page playing behind the My work door.
-     Back to front: glow on the wall, frame, the room (floor, subject, jamb), leaf, sill, spill. */
-  .door{ clip-path:none; --w:calc(var(--orb) * .42); --h:calc(var(--orb) * .76); --top:calc(var(--orb) * .08);
-         --arch:50% 50% 0 0 / 27.6% 27.6% 0 0 }
-  .door > *{ position:absolute; pointer-events:none; display:block }
-  .door__glow{
-    left:calc(50% - var(--orb) * .36); top:calc(var(--top) - var(--orb) * .14);
-    width:calc(var(--orb) * .72); height:calc(var(--h) + var(--orb) * .22); border-radius:50%;
-    background:radial-gradient(50% 50% at 50% 52%, var(--tint) 0%, transparent 70%);
-    opacity:.40; animation:breathe 5.2s var(--delay, 0s) ease-in-out infinite;
+  /* ---------- a door, third pass ----------
+     One object, lit two ways. A tall slab of dark matte stone stands on the page, lit from above
+     by the room's white light. Cut into it, an arched doorway. Inside, a small room glows in the
+     section's colour from a lamp up high: the colour is brightest at the top of the back wall,
+     the floor meets it at a visible horizon, and the light leaks out onto the stone around the
+     opening and lies in a wedge across the floor in front. The leaf is the same stone, hung on
+     the left and swung inward, so the room's colour catches its edge. A tall pull on it.
+     Drawn in CSS; the one clip is the page playing on the phone inside My work.
+     Back to front: ground shadow, the slab (with the leak on it), the room, the leaf, the wedge. */
+  .door{ clip-path:none;
+    --W:calc(var(--orb) * .50); --H:calc(var(--orb) * .86); --T:calc(var(--orb) * .05);   /* the slab */
+    --w:calc(var(--orb) * .32); --h:calc(var(--orb) * .66);                               /* the opening */
+    --x:calc(50% - var(--w) / 2); --y:calc(var(--T) + var(--H) - var(--h));              /* opening sits on the slab's foot */
+    --arch:calc(var(--w) / 2) calc(var(--w) / 2) 0 0;                                    /* a true half round */
+    --bright:color-mix(in srgb, var(--tint) 28%, #FFFFFF);
+    --deep:color-mix(in srgb, var(--tint) 72%, #000000);
   }
-  @keyframes breathe{ 0%,100%{ opacity:.40 } 50%{ opacity:.52 } }
-  .door__frame{
-    left:calc(50% - var(--w) / 2 - var(--orb) * .028); top:calc(var(--top) - var(--orb) * .028);
-    width:calc(var(--w) + var(--orb) * .056); height:calc(var(--h) + var(--orb) * .028);
-    border-radius:var(--arch);
-    background:linear-gradient(180deg, #F8F8F9, #E7E7EB 60%, #D9D9DF);
-    box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 -1px 0 rgba(0,0,0,.06) inset, 0 12px 26px -16px rgba(0,0,0,.28);
+  .door > *{ position:absolute; display:block; pointer-events:none }
+  .door__shadow{                           /* the slab's weight on the page, thrown a little to the right */
+    left:calc(50% - var(--W) * .60); top:calc(var(--T) + var(--H) - var(--orb) * .035);
+    width:calc(var(--W) * 1.28); height:calc(var(--orb) * .085); border-radius:50%;
+    background:radial-gradient(50% 50% at 50% 50%, rgba(14,14,18,.42) 0%, rgba(14,14,18,.18) 45%, rgba(14,14,18,0) 72%);
   }
-  .door__way{
-    left:calc(50% - var(--w) / 2); top:var(--top); width:var(--w); height:var(--h); border-radius:var(--arch);
-    overflow:hidden; display:grid; place-items:center;
+  .door__wall{
+    left:calc(50% - var(--W) / 2); top:var(--T); width:var(--W); height:var(--H); overflow:hidden;
+    border-radius:calc(var(--orb) * .024) calc(var(--orb) * .024) calc(var(--orb) * .008) calc(var(--orb) * .008);
     background:
-      radial-gradient(90% 50% at 50% 40%, #FFFFFF 0%, color-mix(in srgb, var(--tint) 30%, #FFFFFF) 45%, transparent 80%),
-      linear-gradient(180deg, color-mix(in srgb, var(--tint) 70%, #FFFFFF) 0%, color-mix(in srgb, var(--tint) 88%, #FFFFFF) 50%, var(--tint) 100%);
-    box-shadow:0 0 0 1px rgba(0,0,0,.07) inset;
+      linear-gradient(90deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,0) 16%, rgba(0,0,0,0) 78%, rgba(0,0,0,.30) 100%),
+      linear-gradient(180deg, #2E2E34 0%, #1E1E23 48%, #141418 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 1px 0 0 rgba(255,255,255,.05), inset 0 -1px 0 rgba(0,0,0,.6),
+               0 calc(var(--orb) * .02) calc(var(--orb) * .05) calc(var(--orb) * -.02) rgba(0,0,0,.4);
   }
-  .door__way > *{ position:absolute; pointer-events:none }
-  .door__floor{                            /* the room's floor: the colour deepening toward the sill */
-    left:-20%; right:-20%; bottom:-6%; height:34%; border-radius:50%;
-    background:radial-gradient(50% 60% at 50% 70%, color-mix(in srgb, var(--tint) 85%, #000) 0%, color-mix(in srgb, var(--tint) 92%, #FFFFFF) 60%, transparent 78%);
-    opacity:.55;
+  .door__wall::after{                      /* the room's colour leaking onto the stone around the opening */
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(calc(var(--w) * .95) calc(var(--h) * .62) at 50% calc(100% - var(--h) * .48),
+                               color-mix(in srgb, var(--tint) 42%, transparent) 0%, color-mix(in srgb, var(--tint) 14%, transparent) 60%, transparent 100%);
   }
-  .door__jamb{                             /* the wall's thickness on the hinge side, in shadow */
-    left:0; top:0; bottom:0; width:9%;
-    background:linear-gradient(90deg, rgba(0,0,0,.28), rgba(0,0,0,0));
+  .door__room{
+    left:var(--x); top:var(--y); width:var(--w); height:var(--h); border-radius:var(--arch); overflow:hidden;
+    display:grid; place-items:center;
+    background:
+      radial-gradient(90% 46% at 50% 22%, var(--bright) 0%, color-mix(in srgb, var(--tint) 60%, #FFFFFF) 34%, transparent 72%),
+      linear-gradient(180deg, color-mix(in srgb, var(--tint) 78%, #FFFFFF) 0%, var(--tint) 52%, color-mix(in srgb, var(--tint) 86%, #000) 71%, var(--deep) 100%);
   }
-  .door__peek{ left:40%; top:0; width:60%; height:100%; display:grid; place-items:center; padding-top:6% }
+  .door__room > *{ position:absolute; pointer-events:none }
+  .door__floor{                            /* the floor: lit at the horizon under the lamp, darker toward the sill */
+    left:0; right:0; bottom:0; height:29%;
+    background:linear-gradient(180deg, color-mix(in srgb, var(--tint) 58%, #FFFFFF) 0%, color-mix(in srgb, var(--tint) 80%, #FFFFFF) 18%, var(--tint) 55%, color-mix(in srgb, var(--tint) 74%, #000) 100%);
+  }
+  .door__jamb{ top:0; bottom:0; width:10% }
+  .door__jamb--l{ left:0;  background:linear-gradient(90deg, rgba(0,0,0,.48), rgba(0,0,0,0)) }         /* the reveal in shadow, behind the leaf */
+  .door__jamb--r{ right:0; background:linear-gradient(270deg, rgba(255,255,255,.22), rgba(255,255,255,0)) } /* the reveal catching the lamp */
+  .door__lamp{                             /* the lamp breathing: an opacity fade, the cheapest animation there is */
+    inset:0; background:radial-gradient(80% 40% at 50% 18%, rgba(255,255,255,.55), transparent 70%);
+    opacity:0; animation:lamp 5.2s var(--delay, 0s) ease-in-out infinite;
+  }
+  @keyframes lamp{ 0%,100%{ opacity:0 } 50%{ opacity:.35 } }
+  /* what stands in each room, kept to the right of the leaf */
+  .door__peek{ left:39%; top:0; width:61%; height:100%; display:grid; place-items:center; padding-bottom:7% }
   .door__peek > *{ pointer-events:none }
-  .mini{
-    width:68%; aspect-ratio:9 / 18.5; border-radius:11% / 5.5%; background:#141416; padding:3.5%; display:block;
-    box-shadow:0 calc(var(--w) * .08) calc(var(--w) * .16) calc(var(--w) * -.06) rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.12);
-    transform:translateY(2%);
+  .mini{                                   /* My work: a phone, the page playing on it */
+    width:64%; aspect-ratio:9 / 18.5; border-radius:12% / 5.8%; background:#121214; padding:3.5%; display:block;
+    box-shadow:0 calc(var(--w) * .10) calc(var(--w) * .18) calc(var(--w) * -.06) rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14);
   }
-  .mini video{ width:100%; height:100%; object-fit:cover; object-position:top; border-radius:8% / 4%; display:block; background:#fff }
-  .bubble{
-    font-weight:800; font-stretch:110%; letter-spacing:-.02em; font-size:calc(var(--w) * .1); color:var(--ink); white-space:nowrap;
-    background:#FFFFFF; padding:.55em .9em; border-radius:999px; position:relative; transform:translateY(-10%);
-    box-shadow:0 calc(var(--w) * .05) calc(var(--w) * .12) calc(var(--w) * -.04) rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.05);
+  .mini video{ width:100%; height:100%; object-fit:cover; object-position:top; border-radius:9% / 4.3%; display:block; background:#fff }
+  .chat{                                   /* Contact: a message being typed */
+    width:68%; aspect-ratio:1.6; display:flex; align-items:center; justify-content:center; gap:11%;
+    background:#FFFFFF; border-radius:36% 36% 36% 10% / 50% 50% 50% 16%;
+    box-shadow:0 calc(var(--w) * .07) calc(var(--w) * .14) calc(var(--w) * -.05) rgba(0,0,0,.35);
   }
-  .bubble::after{ content:""; position:absolute; left:18%; bottom:-22%; border:.5em solid transparent; border-top-color:#FFFFFF; border-left-color:#FFFFFF; transform:skewX(-20deg) }
-  .glyph{
-    font-weight:900; font-stretch:125%; letter-spacing:-.06em; font-size:calc(var(--w) * .55); line-height:1;
-    background:linear-gradient(165deg, #FFFFFF 0%, #B9B9C2 28%, #2C2C32 52%, #6E6E78 70%, #E6E6EB 100%);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
+  .chat i{ width:13%; aspect-ratio:1; border-radius:50%; background:#8E8E96; animation:typing 1.5s ease-in-out infinite }
+  .chat i:nth-child(2){ animation-delay:.18s } .chat i:nth-child(3){ animation-delay:.36s }
+  @keyframes typing{ 0%,60%,100%{ transform:translateY(0); opacity:.55 } 30%{ transform:translateY(-38%); opacity:1 } }
+  .steps{                                  /* What you should know: the road, in three words */
+    display:grid; gap:calc(var(--w) * .075); justify-items:center; position:relative;
+    font-size:calc(var(--w) * .085); font-weight:800; font-stretch:108%; letter-spacing:-.01em; line-height:1;
   }
-  .glyph--q{ font-size:calc(var(--w) * .9); transform:translateY(30%) }
-  .mark{ width:88%; height:auto; display:block; transform:translateY(-6%); opacity:.92 }
+  .steps::before{ content:""; position:absolute; left:calc(50% - 1px); top:12%; bottom:12%; border-left:2px dotted rgba(255,255,255,.8) }
+  .steps b{ position:relative; background:#FFFFFF; color:var(--ink); padding:.5em .95em; border-radius:999px;
+            box-shadow:0 .25em .6em -.2em rgba(0,0,0,.4) }
+  .steps b:last-child{ background:var(--ink); color:#FFFFFF }
+  .quote{                                  /* Testimonies: an open quotation, the words to come */
+    font-weight:900; font-stretch:120%; font-size:calc(var(--w) * 1.05); line-height:1; letter-spacing:-.02em;
+    color:#FFFFFF; transform:translateY(32%);
+    text-shadow:0 calc(var(--w) * .04) calc(var(--w) * .12) color-mix(in srgb, var(--tint) 70%, #000);
+  }
+  .mark{ width:80%; height:auto; display:block; filter:invert(1); opacity:.96;   /* More about me: the name, lit white */
+         transform:translateY(-4%) }
   .door__leaf{
-    left:calc(50% - var(--w) / 2); top:var(--top); width:var(--w); height:var(--h); border-radius:var(--arch);
-    transform-origin:0 50%;
-    transform:perspective(calc(var(--orb) * 1.5)) rotateY(58deg);
-    background:linear-gradient(90deg, #2E2E34 0%, #46464E 55%, color-mix(in srgb, var(--tint) 45%, #6A6A74) 92%, color-mix(in srgb, var(--tint) 70%, #FFFFFF) 100%);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), calc(var(--orb) * .025) 0 calc(var(--orb) * .06) rgba(0,0,0,.28);
+    left:var(--x); top:var(--y); width:var(--w); height:var(--h); border-radius:var(--arch);
+    transform-origin:0 50%; transform:perspective(calc(var(--orb) * 1.4)) rotateY(56deg);
+    background:linear-gradient(90deg, #1C1C21 0%, #25252A 58%, #2F2F35 88%, color-mix(in srgb, var(--tint) 55%, #46464D) 97%, color-mix(in srgb, var(--tint) 82%, #FFFFFF) 100%);
+    box-shadow:calc(var(--orb) * .018) 0 calc(var(--orb) * .05) rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08), inset 1px 0 0 rgba(255,255,255,.04);
     animation:sway 7s var(--delay, 0s) ease-in-out infinite;
     transition:transform .6s cubic-bezier(.2,.7,.2,1);
   }
-  .door__leaf::before{                     /* one tall recessed panel, following the arch */
-    content:""; position:absolute; left:13%; right:13%; top:9%; bottom:9%;
-    border-radius:50% 50% 3% 3% / 32% 32% 2% 2%;
-    background:linear-gradient(180deg, rgba(0,0,0,.22), rgba(0,0,0,.06));
-    box-shadow:inset 2px 3px 6px rgba(0,0,0,.55), inset -1px -1px 0 rgba(255,255,255,.06), 1px 1px 0 rgba(255,255,255,.05);
+  .door__leaf::before{                     /* the room light brushing the leaf's face near the gap */
+    content:""; position:absolute; inset:0; border-radius:inherit;
+    background:linear-gradient(90deg, transparent 55%, color-mix(in srgb, var(--tint) 30%, transparent) 100%);
   }
-  .door__leaf::after{                      /* the handle, catching the light */
-    content:""; position:absolute; right:8%; top:52%; width:calc(var(--orb) * .022); height:calc(var(--orb) * .022);
-    border-radius:50%; background:radial-gradient(circle at 35% 35%, #FFFFFF, #9A9AA3 55%, #55555E);
+  .door__leaf::after{                      /* a tall pull, brushed steel */
+    content:""; position:absolute; right:11%; top:43%; width:calc(var(--w) * .038); height:calc(var(--h) * .17); border-radius:999px;
+    background:linear-gradient(90deg, #7C7C86 0%, #F4F4F7 42%, #9A9AA4 70%, #5E5E68 100%);
+    box-shadow:0 0 0 1px rgba(0,0,0,.35), 2px 2px 5px rgba(0,0,0,.45);
   }
-  @keyframes sway{ 0%,100%{ transform:perspective(calc(var(--orb) * 1.5)) rotateY(58deg) }
-                   50%{ transform:perspective(calc(var(--orb) * 1.5)) rotateY(62deg) } }
-  .door__sill{                             /* the threshold */
-    left:calc(50% - var(--w) / 2 - var(--orb) * .036); top:calc(var(--top) + var(--h) - var(--orb) * .004);
-    width:calc(var(--w) + var(--orb) * .072); height:calc(var(--orb) * .016); border-radius:2px;
-    background:linear-gradient(180deg, #EDEDF0, #CBCBD2); box-shadow:0 2px 3px rgba(0,0,0,.18);
+  @keyframes sway{ 0%,100%{ transform:perspective(calc(var(--orb) * 1.4)) rotateY(56deg) }
+                   50%{ transform:perspective(calc(var(--orb) * 1.4)) rotateY(60deg) } }
+  .door__pool{                             /* the room's light across the floor in front: a plane laid flat */
+    left:calc(50% - var(--w) * .62); top:calc(var(--T) + var(--H) - var(--orb) * .004);
+    width:calc(var(--w) * 1.24); height:calc(var(--orb) * .46);
+    transform-origin:50% 0; transform:perspective(calc(var(--orb) * .9)) rotateX(72deg);
+    background:radial-gradient(50% 58% at 50% 0%, color-mix(in srgb, var(--tint) 62%, #FFFFFF) 0%, color-mix(in srgb, var(--tint) 40%, #FFFFFF) 32%, color-mix(in srgb, var(--tint) 16%, #FFFFFF) 64%, transparent 100%);
+    opacity:.95; transition:opacity .45s;
   }
-  .door__spill{
-    left:calc(50% - var(--w) * .55); top:calc(var(--top) + var(--h) - var(--orb) * .01);
-    width:calc(var(--w) * 2.2); height:calc(var(--orb) * .2);
-    background:radial-gradient(42% 60% at 58% 18%, color-mix(in srgb, var(--tint) 60%, #FFFFFF) 0%, color-mix(in srgb, var(--tint) 38%, #FFFFFF) 35%, transparent 70%);
-    opacity:.9;
-  }
-  .door:hover .door__leaf{ animation:none; transform:perspective(calc(var(--orb) * 1.5)) rotateY(74deg) }
-  .door:hover .door__glow{ opacity:.6 }
-  @media (prefers-reduced-motion: reduce){ .door__leaf,.door__glow{ animation:none } }
-  .shade{ display:none }   /* the door's own spill is its shadow */
+  .door:hover .door__leaf{ animation:none; transform:perspective(calc(var(--orb) * 1.4)) rotateY(72deg) }
+  .door:hover .door__pool{ opacity:1 }
+  @media (prefers-reduced-motion: reduce){ .door__leaf,.door__lamp,.chat i{ animation:none } }
+  .shade{ display:none }   /* the door's own shadow and light stand in for it */
 
   .orbimg{
     width:var(--orb); height:var(--orb);
@@ -284,6 +304,8 @@
     :root{ --r:675px; --orb:450px }   /* same 1.5x ratio; bigger than before, so the orbs own a phone screen */
   }
   @media (max-width:700px){
+    .door{ --W:calc(var(--orb) * .58); --H:calc(var(--orb) * .94); --T:calc(var(--orb) * .01);
+           --w:calc(var(--orb) * .38); --h:calc(var(--orb) * .74) }     /* a phone: the door fills its slot */
     .bar{ padding:14px 14px }
     .nav a,.contact{ font-size:12.5px; padding:6px 12px } .nav{ gap:6px }
     .brand{ font-size:16px }
@@ -437,16 +459,16 @@
 
 <div class="scene" id="scene" tabindex="0" role="group" aria-label="World carousel. Drag sideways, or use the left and right arrow keys. Press Enter to open the door at the front.">
   <div class="ring" id="ring" style="--step:36deg">
-    <div class="slot" style="--i:0"><div class="slot__f"><div class="orbimg orbvid door" data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html" style="--tint:#E84E52" aria-label="A door standing ajar. Opens More about me."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><img class="mark" src="assets/intro/ejay-mark.png" alt=""></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:1"><div class="slot__f"><div class="orbimg orbvid door" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576" data-href="contact.html" style="--tint:#225576" aria-label="A door standing ajar. Opens Contact."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="bubble">Say hello</span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:2"><div class="slot__f"><div class="orbimg orbvid door" data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html" style="--tint:#D57594" aria-label="A door standing ajar. Opens What you should know."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph">?</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:3"><div class="slot__f"><div class="orbimg orbvid door" data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html" style="--tint:#609B61" aria-label="A door standing ajar. Opens My work."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="mini"><video src="assets/work/swinging.webm" poster="assets/work/swinging.jpg" muted loop autoplay playsinline preload="metadata" disablepictureinpicture></video></span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:4"><div class="slot__f"><div class="orbimg orbvid door" data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html" style="--tint:#C89897" aria-label="A door standing ajar. Opens Testimonies."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph glyph--q">&ldquo;</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:5"><div class="slot__f"><div class="orbimg orbvid door" data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html" style="--tint:#E84E52" aria-label="A door standing ajar. Opens More about me."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><img class="mark" src="assets/intro/ejay-mark.png" alt=""></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:6"><div class="slot__f"><div class="orbimg orbvid door" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576" data-href="contact.html" style="--tint:#225576" aria-label="A door standing ajar. Opens Contact."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="bubble">Say hello</span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:7"><div class="slot__f"><div class="orbimg orbvid door" data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html" style="--tint:#D57594" aria-label="A door standing ajar. Opens What you should know."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph">?</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:8"><div class="slot__f"><div class="orbimg orbvid door" data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html" style="--tint:#609B61" aria-label="A door standing ajar. Opens My work."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><span class="mini"><video src="assets/work/swinging.webm" poster="assets/work/swinging.jpg" muted loop autoplay playsinline preload="metadata" disablepictureinpicture></video></span></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
-    <div class="slot" style="--i:9"><div class="slot__f"><div class="orbimg orbvid door" data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html" style="--tint:#C89897" aria-label="A door standing ajar. Opens Testimonies."><i class="door__glow"></i><i class="door__frame"></i><span class="door__way"><i class="door__floor"></i><span class="door__peek"><b class="glyph glyph--q">&ldquo;</b></span><i class="door__jamb"></i></span><i class="door__leaf"></i><i class="door__sill"></i><i class="door__spill"></i></div></div></div>
+    <div class="slot" style="--i:0"><div class="slot__f"><div class="orbimg orbvid door" data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html" style="--tint:#E84E52" aria-label="A door standing open in a dark wall. Opens More about me."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><img class="mark" src="assets/intro/ejay-mark.png" alt=""></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:1"><div class="slot__f"><div class="orbimg orbvid door" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576" data-href="contact.html" style="--tint:#225576" aria-label="A door standing open in a dark wall. Opens Contact."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><span class="chat"><i></i><i></i><i></i></span></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:2"><div class="slot__f"><div class="orbimg orbvid door" data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html" style="--tint:#D57594" aria-label="A door standing open in a dark wall. Opens What you should know."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><span class="steps"><b>Hello</b><b>Build</b><b>Launch</b></span></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:3"><div class="slot__f"><div class="orbimg orbvid door" data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html" style="--tint:#609B61" aria-label="A door standing open in a dark wall. Opens My work."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><span class="mini"><video src="assets/work/swinging.webm" poster="assets/work/swinging.jpg" muted loop autoplay playsinline preload="metadata" disablepictureinpicture></video></span></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:4"><div class="slot__f"><div class="orbimg orbvid door" data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html" style="--tint:#C89897" aria-label="A door standing open in a dark wall. Opens Testimonies."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><b class="quote">&ldquo;</b></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:5"><div class="slot__f"><div class="orbimg orbvid door" data-title="More about me" data-teaser="Who I am, and how I like to work." data-tint="#E84E52" data-href="about-me.html" style="--tint:#E84E52" aria-label="A door standing open in a dark wall. Opens More about me."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><img class="mark" src="assets/intro/ejay-mark.png" alt=""></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:6"><div class="slot__f"><div class="orbimg orbvid door" data-title="Contact" data-teaser="Say hello, or ask a question." data-tint="#225576" data-href="contact.html" style="--tint:#225576" aria-label="A door standing open in a dark wall. Opens Contact."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><span class="chat"><i></i><i></i><i></i></span></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:7"><div class="slot__f"><div class="orbimg orbvid door" data-title="What you should know" data-teaser="How a project goes, from hello to launch." data-tint="#D57594" data-href="know.html" style="--tint:#D57594" aria-label="A door standing open in a dark wall. Opens What you should know."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><span class="steps"><b>Hello</b><b>Build</b><b>Launch</b></span></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:8"><div class="slot__f"><div class="orbimg orbvid door" data-title="My work" data-teaser="Eight real pages, shown as they are." data-tint="#609B61" data-href="work.html" style="--tint:#609B61" aria-label="A door standing open in a dark wall. Opens My work."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><span class="mini"><video src="assets/work/swinging.webm" poster="assets/work/swinging.jpg" muted loop autoplay playsinline preload="metadata" disablepictureinpicture></video></span></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
+    <div class="slot" style="--i:9"><div class="slot__f"><div class="orbimg orbvid door" data-title="Testimonies" data-teaser="Kind words from clients, as they come in." data-tint="#C89897" data-href="testimonies.html" style="--tint:#C89897" aria-label="A door standing open in a dark wall. Opens Testimonies."><i class="door__shadow"></i><i class="door__wall"></i><span class="door__room"><i class="door__floor"></i><span class="door__peek"><b class="quote">&ldquo;</b></span><i class="door__jamb door__jamb--l"></i><i class="door__jamb door__jamb--r"></i><i class="door__lamp"></i></span><i class="door__leaf"></i><i class="door__pool"></i></div></div></div>
   </div>
 </div>
 
